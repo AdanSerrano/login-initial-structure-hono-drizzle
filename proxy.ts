@@ -6,13 +6,9 @@ import {
   apiAuthPrefix,
   DEFAULT_LOGIN_REDIRECT,
 } from './routes';
+import { JWT_SECRET_ENCODED, TOKEN_CONFIG } from '@/lib/jwt-config';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key'
-);
-
-const ACCESS_TOKEN_COOKIE = 'auth_token';
-const REFRESH_TOKEN_COOKIE = 'refresh_token';
+const { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } = TOKEN_CONFIG;
 
 const isPublicRoute = (pathname: string): boolean => {
   return publicRoutes.includes(pathname);
@@ -30,7 +26,7 @@ const isApiAuthRoute = (pathname: string): boolean => {
 
 async function verifyToken(token: string): Promise<boolean> {
   try {
-    await jwtVerify(token, JWT_SECRET);
+    await jwtVerify(token, JWT_SECRET_ENCODED);
     return true;
   } catch {
     return false;

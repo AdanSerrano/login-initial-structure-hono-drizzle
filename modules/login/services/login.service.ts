@@ -6,11 +6,9 @@ import { sessionsService } from '@/modules/sessions/services/sessions.service';
 import { trustedDevicesService } from '@/modules/trusted-devices/services/trusted-devices.service';
 import { getGeoLocation, isLocationDifferent, formatLocation } from '@/lib/geoip';
 import { sendSuspiciousLoginEmail } from '../emails/suspicious-login.emails';
+import { JWT_SECRET } from '@/lib/jwt-config';
 import type { LoginInput } from '../validations/schema/login.schema';
 import type { User, JwtPayload, LoginResult, TwoFactorMethod } from '../types/login.types';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const ACCESS_TOKEN_EXPIRES_IN = '15m'; // Access token: 15 minutes
 
 // Rate limiting constants
 const MAX_FAILED_ATTEMPTS = 5;

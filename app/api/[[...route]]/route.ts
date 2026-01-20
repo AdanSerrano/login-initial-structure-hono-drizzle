@@ -11,14 +11,26 @@ import { auditLogsRoutes } from '@/modules/audit-logs/routes/audit-logs.routes'
 import { sessionsRoutes } from '@/modules/sessions/routes/sessions.routes'
 import { emailChangeRoutes } from '@/modules/email-change/routes/email-change.routes'
 import { magicLinkRoutes } from '@/modules/magic-link/routes/magic-link.routes'
+import { rateLimiters } from '@/lib/rate-limit'
 
 const app = new Hono().basePath('/api')
+
+// Rate limiting global para todas las rutas API
+app.use('*', rateLimiters.api)
 
 app.get('/hello', (c) => {
   return c.json({
     message: 'Hello Next.js!',
   })
 })
+
+// Rutas con rate limiting específico
+app.use('/register', rateLimiters.register)
+app.use('/login', rateLimiters.login)
+app.use('/password-reset/*', rateLimiters.passwordReset)
+app.use('/email-verification/*', rateLimiters.emailVerification)
+app.use('/magic-link/*', rateLimiters.magicLink)
+app.use('/two-factor/send-*', rateLimiters.twoFactorSend)
 
 app.route('/register', registerRoutes)
 app.route('/login', loginRoutes)

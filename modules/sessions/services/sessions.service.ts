@@ -1,14 +1,11 @@
 import jwt from 'jsonwebtoken';
 import { SessionsRepository } from '../repository/sessions.repository';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
+import { JWT_SECRET, TOKEN_CONFIG } from '@/lib/jwt-config';
 import type { Session, RefreshTokenResult } from '../types/sessions.types';
 import type { User, TwoFactorMethod } from '@/modules/login/types/login.types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-
-// Token durations
-const ACCESS_TOKEN_EXPIRES_IN = '15m'; // 15 minutes
-const REFRESH_TOKEN_EXPIRES_DAYS = 7; // 7 days
+const { ACCESS_TOKEN_EXPIRY, REFRESH_TOKEN_EXPIRY_DAYS } = TOKEN_CONFIG;
 
 export interface SessionOptions {
   ipAddress?: string;
@@ -41,7 +38,7 @@ export class SessionsService {
         twoFactorMethod: userData.twoFactorMethod,
       }),
     };
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
   }
 
   /**
@@ -53,7 +50,7 @@ export class SessionsService {
   ): Promise<{ token: string; expiresAt: Date }> {
     const token = crypto.randomUUID();
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRES_DAYS);
+    expiresAt.setDate(expiresAt.getDate() + REFRESH_TOKEN_EXPIRY_DAYS);
 
     // Parse device name from user agent
     const deviceName = this.parseDeviceName(options.userAgent);

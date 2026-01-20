@@ -4,13 +4,9 @@ import { db } from '@/db';
 import { usersTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import type { UserResponse } from '@/modules/user/types/user.types';
+import { JWT_SECRET_ENCODED, TOKEN_CONFIG } from './jwt-config';
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key'
-);
-
-const ACCESS_TOKEN_COOKIE = 'auth_token';
-const REFRESH_TOKEN_COOKIE = 'refresh_token';
+const { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } = TOKEN_CONFIG;
 
 interface JwtPayload {
   userId: string;
@@ -44,7 +40,7 @@ export async function auth(): Promise<{ user: UserResponse } | null> {
     // Try to verify access token
     if (accessToken) {
       try {
-        const { payload } = await jwtVerify(accessToken, JWT_SECRET);
+        const { payload } = await jwtVerify(accessToken, JWT_SECRET_ENCODED);
         const jwtData = payload as unknown as JwtPayload;
         userId = jwtData.userId;
 

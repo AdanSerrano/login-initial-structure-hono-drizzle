@@ -2,13 +2,11 @@ import type { Context } from 'hono';
 import { setCookie, getCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 import { TwoFactorService } from '../services/two-factor.service';
+import { JWT_SECRET, TOKEN_CONFIG } from '@/lib/jwt-config';
 import type { VerifyTwoFactorInput, VerifyTwoFactorLoginInput } from '../validations/schema/two-factor.schema';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const ACCESS_TOKEN_COOKIE = 'auth_token';
-const REFRESH_TOKEN_COOKIE = 'refresh_token';
+const { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } = TOKEN_CONFIG;
 
-// Cookie durations
 const ACCESS_TOKEN_MAX_AGE = 60 * 15; // 15 minutes
 const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 

@@ -3,10 +3,10 @@ import { getCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 import { UserService } from '../services/user.service';
 import { dataExportService } from '../services/data-export.service';
+import { JWT_SECRET, TOKEN_CONFIG } from '@/lib/jwt-config';
 import type { UpdateUserInput } from '../validations/schema/user.schema';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const COOKIE_NAME = 'auth_token';
+const COOKIE_NAME = TOKEN_CONFIG.ACCESS_TOKEN_COOKIE;
 
 export class UserController {
   private service: UserService;
