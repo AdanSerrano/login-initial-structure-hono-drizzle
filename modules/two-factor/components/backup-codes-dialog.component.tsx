@@ -10,8 +10,26 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Copy, Download, Check, RefreshCw, Key } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  AlertTriangle,
+  Copy,
+  Download,
+  Check,
+  RefreshCw,
+  Key,
+  Shield,
+  FileText,
+  CheckCircle,
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -29,6 +47,7 @@ export function BackupCodesDialog({
   onRegenerate,
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [downloaded, setDownloaded] = useState(false);
 
   const handleCopy = async () => {
     const codesText = codes.join('\n');
@@ -61,94 +80,144 @@ IMPORTANTE: No compartas estos códigos con nadie.
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    setDownloaded(true);
     toast.success('Códigos descargados');
+  };
+
+  const handleClose = () => {
+    onOpenChange(false);
+    setDownloaded(false);
+    setCopied(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-              <Key className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-violet-100 to-purple-100 border border-violet-200/50">
+              <Key className="h-6 w-6 text-violet-600" />
             </div>
             <div>
-              <DialogTitle>Códigos de respaldo</DialogTitle>
+              <DialogTitle className="text-xl">Códigos de respaldo</DialogTitle>
               <DialogDescription className="mt-1">
-                Guárdalos en un lugar seguro
+                Usa estos códigos si pierdes acceso a tu autenticador
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 space-y-2">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800">
-                  Guarda estos códigos ahora
-                </p>
-                <p className="text-xs text-amber-700 mt-1">
-                  No podrás verlos de nuevo. Cada código solo puede usarse una vez.
-                </p>
-              </div>
+        <div className="space-y-5 py-4">
+          <Alert className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTitle className="text-amber-800">Importante</AlertTitle>
+            <AlertDescription className="text-amber-700">
+              Guarda estos códigos ahora. No podrás verlos de nuevo. Cada código solo puede usarse una vez.
+            </AlertDescription>
+          </Alert>
+
+          <TooltipProvider>
+            <div className="grid grid-cols-2 gap-3 p-4 bg-gradient-to-br from-muted/50 to-muted/30 rounded-xl border border-border/50">
+              {codes.map((code, index) => (
+                <Tooltip key={index}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className={cn(
+                        "group relative p-3 bg-background rounded-lg border-2 border-border/50",
+                        "font-mono text-sm text-center tracking-wider",
+                        "hover:border-violet-300 hover:bg-violet-50/50 transition-all cursor-pointer",
+                        "select-all"
+                      )}
+                      onClick={() => {
+                        navigator.clipboard.writeText(code);
+                        toast.success(`Código ${index + 1} copiado`);
+                      }}
+                    >
+                      <span className="absolute -top-2 -left-2 w-5 h-5 rounded-full bg-violet-100 text-violet-600 text-xs flex items-center justify-center font-semibold">
+                        {index + 1}
+                      </span>
+                      <span className="font-semibold">{code}</span>
+                      <Copy className="absolute top-1/2 right-2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p className="text-xs">Clic para copiar</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
             </div>
-          </div>
+          </TooltipProvider>
 
-          <div className="grid grid-cols-2 gap-2 p-4 bg-muted rounded-lg font-mono text-sm">
-            {codes.map((code, index) => (
-              <div
-                key={index}
-                className="p-2 bg-background rounded border text-center"
-              >
-                {code}
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               variant="outline"
-              size="sm"
+              size="lg"
               onClick={handleCopy}
-              className="flex-1"
+              className={cn(
+                "flex-1 gap-2 transition-all",
+                copied && "border-emerald-300 bg-emerald-50 text-emerald-700"
+              )}
             >
               {copied ? (
-                <Check className="mr-2 h-4 w-4" />
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Copiado
+                </>
               ) : (
-                <Copy className="mr-2 h-4 w-4" />
+                <>
+                  <Copy className="h-4 w-4" />
+                  Copiar todos
+                </>
               )}
-              {copied ? 'Copiado' : 'Copiar'}
             </Button>
             <Button
               variant="outline"
-              size="sm"
+              size="lg"
               onClick={handleDownload}
-              className="flex-1"
+              className={cn(
+                "flex-1 gap-2 transition-all",
+                downloaded && "border-emerald-300 bg-emerald-50 text-emerald-700"
+              )}
             >
-              <Download className="mr-2 h-4 w-4" />
-              Descargar
+              {downloaded ? (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  Descargado
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Descargar .txt
+                </>
+              )}
             </Button>
+          </div>
+
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-violet-50/50 border border-violet-100">
+            <Shield className="h-5 w-5 text-violet-500 shrink-0" />
+            <p className="text-xs text-violet-700">
+              Guarda estos códigos en un gestor de contraseñas o en un lugar seguro fuera de línea.
+            </p>
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3">
           {onRegenerate && (
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={onRegenerate}
               disabled={isGenerating}
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto gap-2 text-muted-foreground hover:text-foreground"
             >
-              <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
-              Regenerar códigos
+              <RefreshCw className={cn("h-4 w-4", isGenerating && "animate-spin")} />
+              Regenerar
             </Button>
           )}
           <Button
-            onClick={() => onOpenChange(false)}
-            className="w-full sm:w-auto"
+            onClick={handleClose}
+            className="w-full sm:w-auto gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
           >
+            <FileText className="h-4 w-4" />
             He guardado mis códigos
           </Button>
         </DialogFooter>

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Dialog,
   DialogContent,
@@ -26,8 +27,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+  InputOTPSeparator,
+} from '@/components/ui/input-otp';
 import { BackupCodesDialog } from './backup-codes-dialog.component';
-import { Key, AlertTriangle } from 'lucide-react';
+import {
+  Key,
+  AlertTriangle,
+  Smartphone,
+  Mail,
+  CheckCircle,
+  Shield,
+  ShieldOff,
+  Loader2,
+  QrCode,
+  RefreshCw,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { TwoFactorSetupResponse } from '../types/two-factor.types';
 
 export function SecuritySettingsForm() {
@@ -64,7 +83,6 @@ export function SecuritySettingsForm() {
   const [disableCode, setDisableCode] = useState('');
   const [showDisableDialog, setShowDisableDialog] = useState(false);
 
-  // Fetch backup codes count when 2FA is enabled
   useEffect(() => {
     if (isTwoFactorEnabled) {
       fetchRemainingCodes();
@@ -89,10 +107,27 @@ export function SecuritySettingsForm() {
     setVerifyCode('');
   };
 
+  const handleVerifyComplete = async (code: string) => {
+    if (code.length === 6) {
+      if (selectedMethod === 'AUTHENTICATOR') {
+        await verifyAuthenticator({ code });
+      } else {
+        await verifyEmail({ code });
+      }
+      setVerifyCode('');
+    }
+  };
+
   const handleDisable = async () => {
     await disable({ code: disableCode });
     setDisableCode('');
     setShowDisableDialog(false);
+  };
+
+  const handleDisableComplete = async (code: string) => {
+    if (code.length === 6) {
+      setDisableCode(code);
+    }
   };
 
   const handleOpenDisable = async () => {
@@ -104,206 +139,188 @@ export function SecuritySettingsForm() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-            <div className="h-10 bg-gray-200 rounded"></div>
+      <div className="space-y-4">
+        <div className="animate-pulse flex items-center gap-4 p-4 rounded-lg bg-muted/30">
+          <div className="w-12 h-12 rounded-full bg-muted" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-muted rounded w-1/3" />
+            <div className="h-3 bg-muted rounded w-1/2" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     );
   }
 
   if (!user) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <p className="text-muted-foreground">Debes iniciar sesión para ver esta página</p>
-        </CardContent>
-      </Card>
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>Debes iniciar sesión para ver esta página</AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Two-Factor Authentication Card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <CardTitle className="text-lg">Autenticación de dos factores</CardTitle>
-              <CardDescription>
-                Añade una capa extra de seguridad a tu cuenta
-              </CardDescription>
-            </div>
-            <Badge variant={isTwoFactorEnabled ? 'default' : 'secondary'}>
-              {isTwoFactorEnabled ? 'Activado' : 'Desactivado'}
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {!isTwoFactorEnabled ? (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Elige un método para proteger tu cuenta con autenticación de dos factores.
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Card
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => handleSelectMethod('AUTHENTICATOR')}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col items-center text-center space-y-2">
-                      <div className="p-3 rounded-full bg-primary/10">
-                        <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <h3 className="font-medium">Google Authenticator</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Usa una app de autenticación como Google Authenticator o Authy
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card
-                  className="cursor-pointer hover:border-primary transition-colors"
-                  onClick={() => handleSelectMethod('EMAIL')}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex flex-col items-center text-center space-y-2">
-                      <div className="p-3 rounded-full bg-primary/10">
-                        <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <h3 className="font-medium">Correo electrónico</h3>
-                      <p className="text-xs text-muted-foreground">
-                        Recibe un código de verificación en tu correo electrónico
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 rounded-lg bg-green-50 border border-green-200">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-green-100">
-                    <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+      {!isTwoFactorEnabled ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Elige un método para proteger tu cuenta con autenticación de dos factores.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Card
+              className={cn(
+                "cursor-pointer transition-all border-2",
+                "hover:border-violet-300 hover:shadow-lg hover:shadow-purple-500/10",
+                "group"
+              )}
+              onClick={() => handleSelectMethod('AUTHENTICATOR')}
+            >
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 group-hover:scale-110 transition-transform">
+                    <Smartphone className="w-8 h-8 text-violet-600" />
                   </div>
                   <div>
-                    <p className="font-medium text-green-800">2FA Activado</p>
-                    <p className="text-sm text-green-600">
-                      {twoFactorMethod === 'AUTHENTICATOR'
-                        ? 'Usando Google Authenticator'
-                        : 'Usando correo electrónico'}
+                    <h3 className="font-semibold text-foreground">Google Authenticator</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Usa una app como Google Authenticator o Authy
                     </p>
                   </div>
+                  <Badge variant="secondary" className="bg-violet-100 text-violet-700">
+                    Recomendado
+                  </Badge>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenDisable}
-                  disabled={isPending}
-                >
-                  Desactivar
-                </Button>
-              </div>
-
-              {/* Backup Codes Section */}
-              <div className="border-t pt-4 mt-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-full bg-muted">
-                      <Key className="w-5 h-5 text-muted-foreground" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Códigos de respaldo</p>
-                      <p className="text-sm text-muted-foreground">
-                        Usa estos códigos si pierdes acceso a tu método de 2FA
-                      </p>
-                      {remainingCodes > 0 ? (
-                        <p className="text-sm mt-1">
-                          <span className={remainingCodes <= 2 ? 'text-amber-600 font-medium' : 'text-green-600'}>
-                            {remainingCodes} códigos disponibles
-                          </span>
-                        </p>
-                      ) : (
-                        <div className="flex items-center gap-1 mt-1 text-amber-600">
-                          <AlertTriangle className="w-4 h-4" />
-                          <span className="text-sm font-medium">Sin códigos disponibles</span>
-                        </div>
-                      )}
-                    </div>
+              </CardContent>
+            </Card>
+            <Card
+              className={cn(
+                "cursor-pointer transition-all border-2",
+                "hover:border-violet-300 hover:shadow-lg hover:shadow-purple-500/10",
+                "group"
+              )}
+              onClick={() => handleSelectMethod('EMAIL')}
+            >
+              <CardContent className="p-6">
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-100 to-cyan-100 group-hover:scale-110 transition-transform">
+                    <Mail className="w-8 h-8 text-blue-600" />
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateCodes}
-                    disabled={isBackupPending}
-                  >
-                    {remainingCodes > 0 ? 'Regenerar' : 'Generar'}
-                  </Button>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Correo electrónico</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Recibe un código de verificación por email
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                    Más simple
+                  </Badge>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-full bg-emerald-100">
+                <CheckCircle className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-emerald-800">2FA Activado</p>
+                <p className="text-sm text-emerald-600 flex items-center gap-2">
+                  {twoFactorMethod === 'AUTHENTICATOR' ? (
+                    <>
+                      <Smartphone className="w-4 h-4" />
+                      Google Authenticator
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Correo electrónico
+                    </>
+                  )}
+                </p>
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleOpenDisable}
+              disabled={isPending}
+              className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-200"
+            >
+              <ShieldOff className="w-4 h-4" />
+              Desactivar
+            </Button>
+          </div>
 
-      {/* Session Info Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Información de la sesión</CardTitle>
-          <CardDescription>Detalles sobre tu sesión actual</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Email</p>
-              <p className="font-medium">{user.email}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Email verificado</p>
-              <p className="font-medium">{user.emailVerified ? 'Sí' : 'No'}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Rol</p>
-              <p className="font-medium capitalize">{user.role?.toLowerCase()}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Última actualización</p>
-              <p className="font-medium">
-                {user.updatedAt ? new Date(user.updatedAt).toLocaleDateString('es-ES') : 'N/A'}
-              </p>
+          {/* Backup Codes Section */}
+          <div className="p-4 rounded-xl border border-border/50 bg-muted/20">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-gradient-to-br from-violet-100 to-purple-100">
+                  <Key className="w-5 h-5 text-violet-600" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-medium">Códigos de respaldo</p>
+                  <p className="text-sm text-muted-foreground">
+                    Usa estos códigos si pierdes acceso a tu método de 2FA
+                  </p>
+                  {remainingCodes > 0 ? (
+                    <Badge
+                      className={cn(
+                        remainingCodes <= 2
+                          ? "bg-amber-100 text-amber-700 border-amber-200"
+                          : "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      )}
+                    >
+                      {remainingCodes} códigos disponibles
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-red-100 text-red-700 border-red-200">
+                      <AlertTriangle className="w-3 h-3 mr-1" />
+                      Sin códigos
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={generateCodes}
+                disabled={isBackupPending}
+                className="gap-2 hover:bg-violet-50 hover:text-violet-700 hover:border-violet-300"
+              >
+                <RefreshCw className={cn("w-4 h-4", isBackupPending && "animate-spin")} />
+                {remainingCodes > 0 ? 'Regenerar' : 'Generar'}
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      )}
 
       {/* Setup Authenticator Dialog */}
       <Dialog open={isSettingUp && selectedMethod === 'AUTHENTICATOR'} onOpenChange={(open) => !open && cancelSetup()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Configurar Google Authenticator</DialogTitle>
-            <DialogDescription>
-              Escanea el código QR con tu aplicación de autenticación
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-violet-100 to-purple-100">
+                <QrCode className="w-6 h-6 text-violet-600" />
+              </div>
+              <div>
+                <DialogTitle>Configurar Authenticator</DialogTitle>
+                <DialogDescription>
+                  Escanea el código QR con tu app
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
           {setupData && 'qrCode' in setupData && (
-            <div className="space-y-4">
-              {/* QR Code */}
-              <div className="flex justify-center p-4 bg-white rounded-lg border">
+            <div className="space-y-5">
+              <div className="flex justify-center p-4 bg-white rounded-xl border-2 border-dashed border-border">
                 <img
                   src={(setupData as TwoFactorSetupResponse).qrCode}
                   alt="QR Code para 2FA"
@@ -311,42 +328,69 @@ export function SecuritySettingsForm() {
                 />
               </div>
 
-              {/* Manual Secret */}
               <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">
+                <Label className="text-xs text-muted-foreground">
                   O ingresa este código manualmente:
                 </Label>
-                <code className="block p-2 bg-muted rounded text-center font-mono text-sm break-all">
+                <code className="block p-3 bg-muted rounded-lg text-center font-mono text-sm break-all select-all">
                   {(setupData as TwoFactorSetupResponse).secret}
                 </code>
               </div>
 
-              {/* Verification Form */}
               <form onSubmit={handleVerify} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="verify-code">Código de verificación</Label>
-                  <Input
-                    id="verify-code"
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    placeholder="000000"
-                    value={verifyCode}
-                    onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                    className="text-center text-2xl tracking-widest"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Ingresa el código de 6 dígitos de tu aplicación
-                  </p>
+                <div className="space-y-3">
+                  <Label className="text-center block">Código de verificación</Label>
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={verifyCode}
+                      onChange={setVerifyCode}
+                      onComplete={handleVerifyComplete}
+                      disabled={isPending}
+                    >
+                      <InputOTPGroup>
+                        {[0, 1, 2].map((index) => (
+                          <InputOTPSlot
+                            key={index}
+                            index={index}
+                            className="w-11 h-12 text-lg font-semibold rounded-lg border-2"
+                          />
+                        ))}
+                      </InputOTPGroup>
+                      <InputOTPSeparator />
+                      <InputOTPGroup>
+                        {[3, 4, 5].map((index) => (
+                          <InputOTPSlot
+                            key={index}
+                            index={index}
+                            className="w-11 h-12 text-lg font-semibold rounded-lg border-2"
+                          />
+                        ))}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
 
                 <DialogFooter className="gap-2 sm:gap-0">
-                  <Button type="button" variant="outline" onClick={cancelSetup}>
+                  <Button type="button" variant="ghost" onClick={cancelSetup}>
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isPending || verifyCode.length !== 6}>
-                    {isPending ? 'Verificando...' : 'Verificar y activar'}
+                  <Button
+                    type="submit"
+                    disabled={isPending || verifyCode.length !== 6}
+                    className="gap-2 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Verificando...
+                      </>
+                    ) : (
+                      <>
+                        <Shield className="w-4 h-4" />
+                        Activar 2FA
+                      </>
+                    )}
                   </Button>
                 </DialogFooter>
               </form>
@@ -359,29 +403,57 @@ export function SecuritySettingsForm() {
       <Dialog open={isSettingUp && selectedMethod === 'EMAIL'} onOpenChange={(open) => !open && cancelSetup()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Verificar correo electrónico</DialogTitle>
-            <DialogDescription>
-              Ingresa el código de 6 dígitos que enviamos a tu correo
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-cyan-100">
+                <Mail className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <DialogTitle>Verificar correo</DialogTitle>
+                <DialogDescription>
+                  Ingresa el código de 6 dígitos
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email-verify-code">Código de verificación</Label>
-              <Input
-                id="email-verify-code"
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                placeholder="000000"
-                value={verifyCode}
-                onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                className="text-center text-2xl tracking-widest"
-              />
-              <p className="text-xs text-muted-foreground">
-                Revisa tu bandeja de entrada
-              </p>
+          <form onSubmit={handleVerify} className="space-y-5">
+            <Alert className="border-blue-200 bg-blue-50">
+              <Mail className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-700">
+                Enviamos un código a <strong>{user.email}</strong>
+              </AlertDescription>
+            </Alert>
+
+            <div className="space-y-3">
+              <div className="flex justify-center">
+                <InputOTP
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={setVerifyCode}
+                  onComplete={handleVerifyComplete}
+                  disabled={isPending}
+                >
+                  <InputOTPGroup>
+                    {[0, 1, 2].map((index) => (
+                      <InputOTPSlot
+                        key={index}
+                        index={index}
+                        className="w-11 h-12 text-lg font-semibold rounded-lg border-2"
+                      />
+                    ))}
+                  </InputOTPGroup>
+                  <InputOTPSeparator />
+                  <InputOTPGroup>
+                    {[3, 4, 5].map((index) => (
+                      <InputOTPSlot
+                        key={index}
+                        index={index}
+                        className="w-11 h-12 text-lg font-semibold rounded-lg border-2"
+                      />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
             </div>
 
             <div className="flex justify-center">
@@ -391,71 +463,126 @@ export function SecuritySettingsForm() {
                 size="sm"
                 onClick={resendEmailCode}
                 disabled={isPending}
+                className="text-blue-600 hover:text-blue-700"
               >
+                <RefreshCw className="w-4 h-4 mr-1" />
                 Reenviar código
               </Button>
             </div>
 
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button type="button" variant="outline" onClick={cancelSetup}>
+              <Button type="button" variant="ghost" onClick={cancelSetup}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isPending || verifyCode.length !== 6}>
-                {isPending ? 'Verificando...' : 'Verificar y activar'}
+              <Button
+                type="submit"
+                disabled={isPending || verifyCode.length !== 6}
+                className="gap-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4" />
+                    Activar 2FA
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Disable 2FA Alert Dialog */}
+      {/* Disable 2FA Dialog */}
       <AlertDialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Desactivar autenticación de dos factores</AlertDialogTitle>
-            <AlertDialogDescription>
-              {twoFactorMethod === 'AUTHENTICATOR'
-                ? 'Para desactivar 2FA, ingresa el código de tu aplicación de autenticación.'
-                : 'Para desactivar 2FA, ingresa el código que enviamos a tu correo electrónico.'}
-              {' '}Esto hará tu cuenta menos segura.
-            </AlertDialogDescription>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 rounded-xl bg-red-100">
+                <ShieldOff className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <AlertDialogTitle>Desactivar 2FA</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Esto hará tu cuenta menos segura
+                </AlertDialogDescription>
+              </div>
+            </div>
           </AlertDialogHeader>
 
-          <div className="py-4">
-            <Label htmlFor="disable-code">Código de verificación</Label>
-            <Input
-              id="disable-code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
+          <Alert variant="destructive" className="border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-red-700">
+              {twoFactorMethod === 'AUTHENTICATOR'
+                ? 'Ingresa el código de tu aplicación de autenticación.'
+                : 'Ingresa el código que enviamos a tu correo.'}
+            </AlertDescription>
+          </Alert>
+
+          <div className="py-4 flex justify-center">
+            <InputOTP
               maxLength={6}
-              placeholder="000000"
               value={disableCode}
-              onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, ''))}
-              className="mt-2 text-center text-2xl tracking-widest"
-            />
-            {twoFactorMethod === 'EMAIL' && (
+              onChange={setDisableCode}
+              onComplete={handleDisableComplete}
+            >
+              <InputOTPGroup>
+                {[0, 1, 2].map((index) => (
+                  <InputOTPSlot
+                    key={index}
+                    index={index}
+                    className="w-11 h-12 text-lg font-semibold rounded-lg border-2"
+                  />
+                ))}
+              </InputOTPGroup>
+              <InputOTPSeparator />
+              <InputOTPGroup>
+                {[3, 4, 5].map((index) => (
+                  <InputOTPSlot
+                    key={index}
+                    index={index}
+                    className="w-11 h-12 text-lg font-semibold rounded-lg border-2"
+                  />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+
+          {twoFactorMethod === 'EMAIL' && (
+            <div className="flex justify-center">
               <Button
                 type="button"
                 variant="link"
                 size="sm"
                 onClick={sendDisableCode}
                 disabled={isPending}
-                className="mt-2 w-full"
               >
+                <RefreshCw className="w-4 h-4 mr-1" />
                 Reenviar código
               </Button>
-            )}
-          </div>
+            </div>
+          )}
 
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setDisableCode('')}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setDisableCode('')}>
+              Cancelar
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDisable}
               disabled={isPending || disableCode.length !== 6}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-red-600 hover:bg-red-700 gap-2"
             >
-              {isPending ? 'Desactivando...' : 'Desactivar 2FA'}
+              {isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Desactivando...
+                </>
+              ) : (
+                'Desactivar 2FA'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
