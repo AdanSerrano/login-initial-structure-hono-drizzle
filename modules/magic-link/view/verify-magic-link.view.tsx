@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useVerifyMagicLink } from '../hooks/magic-link.hook';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useVerifyMagicLink } from '../hooks/magic-link.hook';
+import { AuthLayout } from '@/components/auth/auth-layout';
+import { Button } from '@/components/ui/button';
+import { Loader2, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
   token: string | null;
@@ -16,7 +16,6 @@ export function VerifyMagicLinkView({ token }: Props) {
   const router = useRouter();
   const { verifyMagicLink, isLoading, error, isNewUser } = useVerifyMagicLink();
   const [verified, setVerified] = useState(false);
-  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     const verify = async () => {
@@ -24,8 +23,6 @@ export function VerifyMagicLinkView({ token }: Props) {
       setVerified(true);
       const result = await verifyMagicLink(token);
       if (result) {
-        setSuccess(true);
-        // Refresh server components and redirect after 2 seconds
         setTimeout(() => {
           router.refresh();
           router.push('/settings/security');
@@ -38,89 +35,134 @@ export function VerifyMagicLinkView({ token }: Props) {
 
   if (!token) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-            <XCircle className="h-6 w-6 text-destructive" />
+      <AuthLayout
+        title="Enlace inválido"
+        subtitle="El enlace de inicio de sesión no es válido"
+        showFeatures={false}
+      >
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/20 text-center">
+            <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mb-4">
+              <XCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h3 className="font-semibold text-destructive mb-2">
+              Enlace no válido
+            </h3>
+            <p className="text-sm text-destructive/80">
+              El enlace de inicio de sesión no es válido o ha expirado.
+            </p>
           </div>
-          <CardTitle>Enlace inválido</CardTitle>
-          <CardDescription>
-            El enlace de inicio de sesión no es válido o ha expirado.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center space-y-3">
-          <Button asChild variant="outline" className="w-full">
-            <Link href="/magic-link">Solicitar nuevo enlace</Link>
-          </Button>
-          <Button asChild className="w-full">
-            <Link href="/login">Iniciar sesión con contraseña</Link>
-          </Button>
-        </CardContent>
-      </Card>
+
+          <div className="space-y-3">
+            <Link href="/magic-link">
+              <Button variant="outline" className="w-full">
+                Solicitar nuevo enlace
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button className="w-full">
+                Iniciar sesión con contraseña
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </AuthLayout>
     );
   }
 
   if (isLoading || !verified) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+      <AuthLayout
+        title="Verificando..."
+        subtitle="Estamos verificando tu enlace de inicio de sesión"
+        showFeatures={false}
+      >
+        <div className="p-8 rounded-2xl bg-primary/5 border border-primary/10 text-center">
+          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
           </div>
-          <CardTitle>Verificando...</CardTitle>
-          <CardDescription>
-            Estamos verificando tu enlace de inicio de sesión.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+          <h3 className="font-semibold text-foreground mb-2">
+            Verificando enlace
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Por favor espera mientras verificamos tu enlace mágico...
+          </p>
+        </div>
+      </AuthLayout>
     );
   }
 
   if (error) {
     return (
-      <Card className="w-full max-w-md mx-auto">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-            <XCircle className="h-6 w-6 text-destructive" />
+      <AuthLayout
+        title="Error de verificación"
+        subtitle="No pudimos verificar tu enlace"
+        showFeatures={false}
+      >
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/20 text-center">
+            <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mb-4">
+              <XCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h3 className="font-semibold text-destructive mb-2">
+              Verificación fallida
+            </h3>
+            <p className="text-sm text-destructive/80">
+              {error}
+            </p>
           </div>
-          <CardTitle>Error de verificación</CardTitle>
-          <CardDescription>{error}</CardDescription>
-        </CardHeader>
-        <CardContent className="text-center space-y-3">
-          <Button asChild variant="outline" className="w-full">
-            <Link href="/magic-link">Solicitar nuevo enlace</Link>
-          </Button>
-          <Button asChild className="w-full">
-            <Link href="/login">Iniciar sesión con contraseña</Link>
-          </Button>
-        </CardContent>
-      </Card>
+
+          <div className="space-y-3">
+            <Link href="/magic-link">
+              <Button variant="outline" className="w-full">
+                Solicitar nuevo enlace
+              </Button>
+            </Link>
+            <Link href="/login">
+              <Button className="w-full">
+                Iniciar sesión con contraseña
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader className="text-center">
-        <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-          <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+    <AuthLayout
+      title={isNewUser ? '¡Cuenta creada!' : '¡Bienvenido de nuevo!'}
+      subtitle={isNewUser ? 'Tu cuenta ha sido creada exitosamente' : 'Has iniciado sesión correctamente'}
+      showFeatures={false}
+    >
+      <div className="space-y-6">
+        <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
+          <div className="mx-auto w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4">
+            <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h3 className="font-semibold text-emerald-900 mb-2">
+            {isNewUser ? '¡Bienvenido a SecureAuth!' : '¡Sesión iniciada!'}
+          </h3>
+          <p className="text-sm text-emerald-700">
+            {isNewUser
+              ? 'Tu cuenta ha sido creada y verificada automáticamente.'
+              : 'Has iniciado sesión exitosamente con tu enlace mágico.'}
+          </p>
         </div>
-        <CardTitle>
-          {isNewUser ? '¡Cuenta creada!' : '¡Bienvenido de nuevo!'}
-        </CardTitle>
-        <CardDescription>
-          {isNewUser
-            ? 'Tu cuenta ha sido creada exitosamente.'
-            : 'Has iniciado sesión exitosamente.'}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="text-center">
-        <p className="text-sm text-muted-foreground mb-4">
-          Serás redirigido automáticamente...
-        </p>
-        <Button onClick={() => { router.refresh(); router.push('/settings/profile'); }}>
-          Ir a configuración
-        </Button>
-      </CardContent>
-    </Card>
+
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground mb-4">
+            Serás redirigido automáticamente...
+          </p>
+          <Button
+            onClick={() => { router.refresh(); router.push('/settings/profile'); }}
+            className="gap-2"
+          >
+            Ir a configuración
+            <ArrowRight className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
+    </AuthLayout>
   );
 }

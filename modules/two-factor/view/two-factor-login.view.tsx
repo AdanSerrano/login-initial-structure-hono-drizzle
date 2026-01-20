@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Key } from 'lucide-react';
+import { Key, Shield, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 
 interface Props {
   userId: string;
@@ -39,7 +39,7 @@ export function TwoFactorLoginView({ userId, onCancel }: Props) {
   };
 
   const TrustDeviceCheckbox = () => (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-3 p-3 rounded-xl bg-secondary/50">
       <Checkbox
         id="trust-device"
         checked={trustDevice}
@@ -47,7 +47,7 @@ export function TwoFactorLoginView({ userId, onCancel }: Props) {
       />
       <Label
         htmlFor="trust-device"
-        className="text-sm font-normal text-gray-600 cursor-pointer"
+        className="text-sm font-normal text-muted-foreground cursor-pointer"
       >
         Confiar en este dispositivo por 30 días
       </Label>
@@ -58,25 +58,25 @@ export function TwoFactorLoginView({ userId, onCancel }: Props) {
     return (
       <div className="space-y-6">
         <div className="text-center">
-          <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-            <Key className="w-6 h-6 text-primary" />
+          <div className="mx-auto w-16 h-16 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl flex items-center justify-center mb-4">
+            <Key className="w-8 h-8 text-amber-600" />
           </div>
-          <h2 className="text-xl font-bold">Código de respaldo</h2>
-          <p className="text-gray-600 mt-2">
+          <h2 className="text-xl font-bold text-foreground">Código de respaldo</h2>
+          <p className="text-muted-foreground mt-2">
             Ingresa uno de tus códigos de respaldo de 8 caracteres
           </p>
         </div>
 
-        <form onSubmit={handleBackupCodeSubmit} className="space-y-4">
+        <form onSubmit={handleBackupCodeSubmit} className="space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="backup-code">Código de respaldo</Label>
+            <Label htmlFor="backup-code" className="text-sm font-medium">Código de respaldo</Label>
             <Input
               id="backup-code"
               type="text"
               placeholder="XXXXXXXX"
               value={backupCode}
               onChange={(e) => setBackupCode(e.target.value.toUpperCase())}
-              className="text-center text-xl tracking-widest font-mono"
+              className="h-14 text-center text-xl tracking-[0.3em] font-mono bg-secondary/50 border-0 focus-visible:bg-background focus-visible:ring-2"
               maxLength={8}
               autoComplete="off"
             />
@@ -85,34 +85,45 @@ export function TwoFactorLoginView({ userId, onCancel }: Props) {
           <TrustDeviceCheckbox />
 
           {error && (
-            <p className="text-sm text-destructive text-center">{error}</p>
+            <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <p>{error}</p>
+            </div>
           )}
 
           <Button
             type="submit"
-            className="w-full"
+            className="w-full h-11 font-medium"
             disabled={isPending || backupCode.length < 8}
           >
-            {isPending ? 'Verificando...' : 'Iniciar sesión'}
+            {isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Verificando...
+              </>
+            ) : (
+              'Iniciar sesión'
+            )}
           </Button>
         </form>
 
-        <div className="text-center space-y-2">
+        <div className="text-center space-y-3 pt-2">
           <button
             type="button"
             onClick={() => {
               toggleBackupCodeMode();
               setBackupCode('');
             }}
-            className="text-sm text-primary hover:underline"
+            className="text-sm text-primary hover:text-primary/80 font-medium inline-flex items-center gap-1"
           >
+            <ArrowLeft className="w-3 h-3" />
             Volver a usar código de autenticación
           </button>
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="block w-full text-sm text-gray-500 hover:underline"
+              className="block w-full text-sm text-muted-foreground hover:text-foreground"
             >
               Cancelar
             </button>
@@ -125,8 +136,11 @@ export function TwoFactorLoginView({ userId, onCancel }: Props) {
   return (
     <div className="space-y-6">
       <div className="text-center">
-        <h2 className="text-xl font-bold">Verificación de dos factores</h2>
-        <p className="text-gray-600 mt-2">
+        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-2xl flex items-center justify-center mb-4">
+          <Shield className="w-8 h-8 text-purple-600" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground">Verificación de dos factores</h2>
+        <p className="text-muted-foreground mt-2">
           Ingresa el código de tu aplicación autenticadora
         </p>
       </div>
@@ -140,19 +154,19 @@ export function TwoFactorLoginView({ userId, onCancel }: Props) {
 
       <TrustDeviceCheckbox />
 
-      <div className="text-center space-y-2">
+      <div className="text-center space-y-3 pt-2">
         <button
           type="button"
           onClick={toggleBackupCodeMode}
-          className="text-sm text-primary hover:underline"
+          className="text-sm text-primary hover:text-primary/80 font-medium"
         >
-          Usar código de respaldo
+          ¿Perdiste acceso? Usar código de respaldo
         </button>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="block w-full text-sm text-gray-500 hover:underline"
+            className="block w-full text-sm text-muted-foreground hover:text-foreground"
           >
             Cancelar
           </button>

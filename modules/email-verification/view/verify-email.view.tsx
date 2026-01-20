@@ -1,7 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { Loader2, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import { useEmailVerificationViewModel } from '../view-model/email-verification.view-model';
+import { AuthLayout } from '@/components/auth/auth-layout';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   token: string;
@@ -12,77 +15,96 @@ export function VerifyEmailView({ token }: Props) {
 
   if (isVerifying) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="text-gray-600">Verificando tu correo...</p>
+      <AuthLayout
+        title="Verificando..."
+        subtitle="Estamos verificando tu correo electrónico"
+        showFeatures={false}
+      >
+        <div className="p-8 rounded-2xl bg-primary/5 border border-primary/10 text-center">
+          <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mb-4">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+          <h3 className="font-semibold text-foreground mb-2">
+            Verificando email
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Por favor espera mientras verificamos tu correo electrónico...
+          </p>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-          <div className="text-center">
-            <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+      <AuthLayout
+        title="Error de verificación"
+        subtitle="No pudimos verificar tu correo"
+        showFeatures={false}
+      >
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-destructive/10 border border-destructive/20 text-center">
+            <div className="mx-auto w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mb-4">
+              <XCircle className="w-8 h-8 text-destructive" />
             </div>
-            <h1 className="text-2xl font-bold text-red-600">Error de verificación</h1>
-            <p className="text-gray-600 mt-2">{error}</p>
+            <h3 className="font-semibold text-destructive mb-2">
+              Verificación fallida
+            </h3>
+            <p className="text-sm text-destructive/80">
+              {error}
+            </p>
           </div>
 
-          <div className="text-center space-y-2">
-            <Link
-              href="/resend-verification"
-              className="block text-blue-600 hover:underline"
-            >
-              Reenviar correo de verificación
+          <div className="space-y-3">
+            <Link href="/resend-verification">
+              <Button variant="outline" className="w-full">
+                Reenviar correo de verificación
+              </Button>
             </Link>
-            <Link
-              href="/login"
-              className="block text-gray-500 hover:underline"
-            >
-              Volver al inicio de sesión
+            <Link href="/login">
+              <Button className="w-full">
+                Volver al inicio de sesión
+              </Button>
             </Link>
           </div>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
   if (isVerified) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-          <div className="text-center">
-            <div className="mx-auto w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+      <AuthLayout
+        title="¡Correo verificado!"
+        subtitle="Tu correo electrónico ha sido verificado correctamente"
+        showFeatures={false}
+      >
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-center">
+            <div className="mx-auto w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
             </div>
-            <h1 className="text-2xl font-bold text-green-600">Correo verificado</h1>
-            <p className="text-gray-600 mt-2">
-              Tu correo electrónico ha sido verificado correctamente.
-            </p>
-            <p className="text-gray-500 text-sm mt-4">
-              Serás redirigido al inicio de sesión en unos segundos...
+            <h3 className="font-semibold text-emerald-900 mb-2">
+              ¡Email verificado exitosamente!
+            </h3>
+            <p className="text-sm text-emerald-700">
+              Tu correo electrónico ha sido verificado. Ahora puedes acceder a todas las funciones de tu cuenta.
             </p>
           </div>
 
           <div className="text-center">
-            <Link
-              href="/login"
-              className="text-blue-600 hover:underline"
-            >
-              Ir al inicio de sesión
+            <p className="text-sm text-muted-foreground mb-4">
+              Serás redirigido al inicio de sesión en unos segundos...
+            </p>
+            <Link href="/login">
+              <Button className="gap-2">
+                Ir al inicio de sesión
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             </Link>
           </div>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 

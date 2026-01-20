@@ -1,14 +1,16 @@
 'use client';
 
 import Link from 'next/link';
+import { Mail, Sparkles, ArrowLeft } from 'lucide-react';
 import { LoginViewModel } from '../view-model/login.view-model';
 import { LoginForm } from '../components/form/login.form';
 import { TwoFactorLoginView } from '@/modules/two-factor/view/two-factor-login.view';
 import { ReactivateAccountDialog } from '../components/reactivate-account-dialog.component';
+import { AuthLayout } from '@/components/auth/auth-layout';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 
 export function LoginView() {
-
   const {
     handleLogin,
     isPending,
@@ -21,7 +23,6 @@ export function LoginView() {
     isResendingVerification,
     resendVerificationEmail,
     cancelEmailVerification,
-    // Account deleted
     accountDeleted,
     deletedAccountEmail,
     daysRemaining,
@@ -31,110 +32,110 @@ export function LoginView() {
     cancelAccountReactivation,
   } = LoginViewModel();
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-            {requiresEmailVerification ? 'Verifica tu correo' : 'Iniciar sesión'}
-          </h2>
-          {!requiresTwoFactor && !requiresEmailVerification && (
-            <p className="mt-2 text-sm text-gray-600">
-              ¿No tienes cuenta?{' '}
-              <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-                Regístrate
-              </Link>
-            </p>
-          )}
-        </div>
-
-        <div className="bg-white p-8 rounded-lg shadow-md">
-          {requiresEmailVerification && unverifiedEmail ? (
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="mx-auto w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
-                  <svg
-                    className="w-8 h-8 text-amber-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <p className="text-gray-600 mb-2">
-                  Tu cuenta aún no ha sido verificada.
-                </p>
-                <p className="text-sm text-gray-500 mb-4">
-                  Enviamos un correo de verificación a{' '}
-                  <span className="font-medium text-gray-700">{unverifiedEmail}</span>
-                </p>
-                <p className="text-sm text-gray-500">
-                  Revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.
-                </p>
-              </div>
-
-              <div className="border-t pt-4 space-y-3">
-                <p className="text-sm text-gray-600 text-center">
-                  ¿No recibiste el correo?
-                </p>
-                <Button
-                  onClick={resendVerificationEmail}
-                  disabled={isResendingVerification}
-                  className="w-full"
-                >
-                  {isResendingVerification ? 'Enviando...' : 'Reenviar correo de verificación'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={cancelEmailVerification}
-                  className="w-full"
-                >
-                  Volver al login
-                </Button>
-              </div>
+  if (requiresEmailVerification && unverifiedEmail) {
+    return (
+      <AuthLayout
+        title="Verificación pendiente"
+        subtitle="Tu cuenta necesita ser verificada"
+        showFeatures={false}
+      >
+        <div className="space-y-6">
+          <div className="p-6 rounded-2xl bg-amber-50 border border-amber-200 text-center">
+            <div className="mx-auto w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
+              <Mail className="w-8 h-8 text-amber-600" />
             </div>
-          ) : requiresTwoFactor && pendingUserId ? (
-            <TwoFactorLoginView
-              userId={pendingUserId}
-              onCancel={cancelTwoFactor}
-            />
-          ) : (
-            <>
-              <LoginForm
-                onSubmit={handleLogin}
-                isPending={isPending}
-                error={error}
-              />
-              <div className="mt-4 text-center space-y-2">
-                <div>
-                  <Link
-                    href="/forgot-password"
-                    className="text-sm text-blue-600 hover:text-blue-500"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </Link>
-                </div>
-                <div>
-                  <Link
-                    href="/magic-link"
-                    className="text-sm text-gray-600 hover:text-gray-800"
-                  >
-                    Iniciar sesión con enlace mágico
-                  </Link>
-                </div>
-              </div>
-            </>
-          )}
+            <h3 className="font-semibold text-amber-900 mb-2">
+              Revisa tu bandeja de entrada
+            </h3>
+            <p className="text-sm text-amber-700 mb-1">
+              Enviamos un correo de verificación a
+            </p>
+            <p className="font-medium text-amber-900">{unverifiedEmail}</p>
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm text-center text-muted-foreground">
+              ¿No recibiste el correo?
+            </p>
+            <Button
+              onClick={resendVerificationEmail}
+              disabled={isResendingVerification}
+              className="w-full h-11"
+            >
+              {isResendingVerification ? 'Enviando...' : 'Reenviar correo de verificación'}
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={cancelEmailVerification}
+              className="w-full"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver al login
+            </Button>
+          </div>
         </div>
+      </AuthLayout>
+    );
+  }
+
+  if (requiresTwoFactor && pendingUserId) {
+    return (
+      <AuthLayout
+        title="Verificación en dos pasos"
+        subtitle="Ingresa el código de seguridad"
+        showFeatures={false}
+      >
+        <TwoFactorLoginView
+          userId={pendingUserId}
+          onCancel={cancelTwoFactor}
+        />
+      </AuthLayout>
+    );
+  }
+
+  return (
+    <AuthLayout
+      title="Bienvenido de nuevo"
+      subtitle="Ingresa tus credenciales para acceder a tu cuenta"
+    >
+      <div className="space-y-6">
+        <LoginForm
+          onSubmit={handleLogin}
+          isPending={isPending}
+          error={error}
+        />
+
+        <div className="flex items-center justify-between text-sm">
+          <Link
+            href="/forgot-password"
+            className="text-primary hover:text-primary/80 font-medium transition-colors"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
+
+        <div className="relative">
+          <Separator />
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-background px-4 text-xs text-muted-foreground uppercase tracking-wider">
+            o continúa con
+          </span>
+        </div>
+
+        <Link href="/magic-link" className="block">
+          <Button variant="outline" className="w-full h-11 gap-2">
+            <Sparkles className="w-4 h-4" />
+            Enlace mágico
+          </Button>
+        </Link>
+
+        <p className="text-center text-sm text-muted-foreground">
+          ¿No tienes cuenta?{' '}
+          <Link href="/register" className="text-primary hover:text-primary/80 font-medium transition-colors">
+            Crear cuenta
+          </Link>
+        </p>
       </div>
 
-      {/* Reactivate Account Dialog */}
       <ReactivateAccountDialog
         open={accountDeleted}
         onOpenChange={(open) => {
@@ -146,6 +147,6 @@ export function LoginView() {
         isPending={isReactivating}
         error={reactivationError}
       />
-    </div>
+    </AuthLayout>
   );
 }
