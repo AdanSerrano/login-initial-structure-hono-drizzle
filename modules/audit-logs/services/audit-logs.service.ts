@@ -2,6 +2,7 @@ import { AuditLogsRepository } from '../repository/audit-logs.repository';
 import type { AuditAction } from '@/db/schema';
 import type { AuditLogListResponse } from '../types/audit-logs.types';
 import { createPaginatedResponse } from '@/types/pagination.types';
+import { getGeoLocation, type GeoLocation } from '@/lib/geoip';
 
 export class AuditLogsService {
   private repository: AuditLogsRepository;
@@ -20,12 +21,31 @@ export class AuditLogsService {
     } = {}
   ): Promise<void> {
     try {
+      // Get geolocation from IP address
+      let location: GeoLocation | null = null;
+      if (options.ipAddress) {
+        location = await getGeoLocation(options.ipAddress);
+      }
+
+      // Merge location into metadata
+      const enrichedMetadata = {
+        ...options.metadata,
+        ...(location && {
+          location: {
+            country: location.country,
+            countryCode: location.countryCode,
+            city: location.city,
+            region: location.region,
+          },
+        }),
+      };
+
       await this.repository.create({
         action,
         userId: options.userId,
         ipAddress: options.ipAddress,
         userAgent: options.userAgent,
-        metadata: options.metadata,
+        metadata: Object.keys(enrichedMetadata).length > 0 ? enrichedMetadata : null,
       });
     } catch (error) {
       console.error('Failed to create audit log:', error);

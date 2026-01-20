@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { RegisterRepository } from '../repository/register.repository';
 import { EmailVerificationService } from '@/modules/email-verification/services/email-verification.service';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
+import { passwordHistoryService } from '@/modules/password-history/services/password-history.service';
 import type { RegisterInput } from '../validations/schema/register.schema';
 
 const BCRYPT_SALT_ROUNDS = 10;
@@ -45,6 +46,9 @@ export class RegisterService {
       ...userData,
       password: hashedPassword,
     });
+
+    // Add password to history
+    await passwordHistoryService.addPasswordToHistory(newUser.id, hashedPassword);
 
     // Log the registration
     await auditLogsService.log('REGISTRATION', {

@@ -3,8 +3,12 @@ import { setCookie } from 'hono/cookie';
 import { LoginService } from '../services/login.service';
 import type { LoginInput } from '../validations/schema/login.schema';
 
-const COOKIE_NAME = 'auth_token';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 días
+const ACCESS_TOKEN_COOKIE = 'auth_token';
+const REFRESH_TOKEN_COOKIE = 'refresh_token';
+
+// Cookie durations
+const ACCESS_TOKEN_MAX_AGE = 60 * 15; // 15 minutes
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 export class LoginController {
   private service: LoginService;
@@ -60,16 +64,25 @@ export class LoginController {
       return c.json({ error: 'Error interno' }, 500);
     }
 
-    // Setear cookie HttpOnly con el token
-    setCookie(c, COOKIE_NAME, result.data.token, {
+    // Set access token cookie (short-lived)
+    setCookie(c, ACCESS_TOKEN_COOKIE, result.data.token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'Lax',
-      maxAge: COOKIE_MAX_AGE,
+      maxAge: ACCESS_TOKEN_MAX_AGE,
       path: '/',
     });
 
-    // Solo devolver el usuario, no el token
+    // Set refresh token cookie (long-lived)
+    setCookie(c, REFRESH_TOKEN_COOKIE, result.data.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+      path: '/',
+    });
+
+    // Return user data (no tokens in response body)
     return c.json({ user: result.data.user });
   }
 }

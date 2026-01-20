@@ -17,6 +17,8 @@ export const authRoutes = [
   "/forgot-password",
   "/reset-password",
   "/resend-verification",
+  "/magic-link/verify",
+  "/magic-link"
 ];
 
 /**

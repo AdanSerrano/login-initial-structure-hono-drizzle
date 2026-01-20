@@ -1,6 +1,6 @@
 'use client';
 
-import { useTwoFactorSetup, useTwoFactorLogin } from '../hooks/two-factor.hook';
+import { useTwoFactorSetup, useTwoFactorLogin, useBackupCodes } from '../hooks/two-factor.hook';
 
 export const useTwoFactorSetupViewModel = () => {
   const {
@@ -41,7 +41,16 @@ export const useTwoFactorSetupViewModel = () => {
 };
 
 export const useTwoFactorLoginViewModel = () => {
-  const { verifyLogin, sendCode, isPending, error, codeSent } = useTwoFactorLogin();
+  const {
+    verifyLogin,
+    sendCode,
+    isPending,
+    error,
+    codeSent,
+    useBackupCode,
+    verifyWithBackupCode,
+    toggleBackupCodeMode,
+  } = useTwoFactorLogin();
 
   return {
     verifyLogin,
@@ -49,5 +58,34 @@ export const useTwoFactorLoginViewModel = () => {
     isPending,
     error,
     codeSent,
+    useBackupCode,
+    verifyWithBackupCode,
+    toggleBackupCodeMode,
+  };
+};
+
+export const useBackupCodesViewModel = () => {
+  const {
+    isPending,
+    error,
+    codes,
+    showDialog,
+    remainingCodes,
+    generateCodes,
+    fetchRemainingCodes,
+    closeDialog,
+    setShowDialog,
+  } = useBackupCodes();
+
+  return {
+    isPending,
+    error,
+    codes,
+    showDialog,
+    remainingCodes,
+    generateCodes,
+    fetchRemainingCodes,
+    closeDialog,
+    setShowDialog,
   };
 };

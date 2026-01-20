@@ -1,0 +1,12 @@
+CREATE TABLE `backup_codes` (
+	`id` varchar(36) NOT NULL,
+	`user_id` varchar(36) NOT NULL,
+	`code_hash` varchar(255) NOT NULL,
+	`is_used` boolean NOT NULL DEFAULT false,
+	`used_at` datetime,
+	`created_at` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `backup_codes_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+ALTER TABLE `audit_logs` MODIFY COLUMN `audit_action` enum('LOGIN_SUCCESS','LOGIN_FAILED','LOGOUT','PASSWORD_RESET_REQUESTED','PASSWORD_RESET_COMPLETED','EMAIL_VERIFIED','EMAIL_VERIFICATION_RESENT','TWO_FACTOR_ENABLED','TWO_FACTOR_DISABLED','TWO_FACTOR_VERIFIED','BACKUP_CODES_GENERATED','BACKUP_CODE_USED','ACCOUNT_LOCKED','ACCOUNT_UNLOCKED','ACCOUNT_BLOCKED','ACCOUNT_UNBLOCKED','ACCOUNT_DELETED','ACCOUNT_REACTIVATED','ACCOUNT_ANONYMIZED','REGISTRATION') NOT NULL;--> statement-breakpoint
+CREATE INDEX `backup_codes_user_idx` ON `backup_codes` (`user_id`);

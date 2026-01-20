@@ -3,6 +3,7 @@ import { PasswordResetRepository } from '../repository/password-reset.repository
 import { sendPasswordResetEmail } from '../emails/password-reset.emails';
 import { generateVerificationToken, TOKEN_EXPIRY } from '@/lib/tokens';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
+import { passwordHistoryService } from '@/modules/password-history/services/password-history.service';
 import type { RequestPasswordResetInput, ResetPasswordInput } from '../validations/schema/password-reset.schema';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -80,14 +81,34 @@ export class PasswordResetService {
       return { success: false, error: 'Token inválido o expirado' };
     }
 
-    // Get user for audit log
+    // Get user for audit log and password history check
     const user = await this.repository.findUserByEmail(tokenRecord.email);
+
+    if (!user) {
+      return { success: false, error: 'Usuario no encontrado' };
+    }
+
+    // Check if password was used recently
+    const wasUsedRecently = await passwordHistoryService.wasPasswordUsedRecently(
+      user.id,
+      data.password
+    );
+
+    if (wasUsedRecently) {
+      return {
+        success: false,
+        error: 'No puedes usar una contraseña que hayas usado recientemente. Por favor, elige una nueva.',
+      };
+    }
 
     // Hash new password
     const hashedPassword = await bcrypt.hash(data.password, BCRYPT_SALT_ROUNDS);
 
     // Update user password
     await this.repository.updateUserPassword(tokenRecord.email, hashedPassword);
+
+    // Add password to history
+    await passwordHistoryService.addPasswordToHistory(user.id, hashedPassword);
 
     // Reset failed login attempts and unlock account
     await this.repository.resetLoginAttempts(tokenRecord.email);
@@ -96,13 +117,11 @@ export class PasswordResetService {
     await this.repository.deleteToken(tokenRecord.id);
 
     // Log password reset completed
-    if (user) {
-      await auditLogsService.log('PASSWORD_RESET_COMPLETED', {
-        userId: user.id,
-        ipAddress,
-        userAgent,
-      });
-    }
+    await auditLogsService.log('PASSWORD_RESET_COMPLETED', {
+      userId: user.id,
+      ipAddress,
+      userAgent,
+    });
 
     return { success: true, message: 'Contraseña actualizada correctamente' };
   }

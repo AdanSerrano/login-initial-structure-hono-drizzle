@@ -30,3 +30,14 @@ export interface TwoFactorLoginResponse {
     updatedAt: Date;
   };
 }
+
+export interface BackupCodesResponse {
+  codes: string[];
+  message: string;
+}
+
+export interface TwoFactorMethodResponse {
+  method: TwoFactorMethod | null;
+  enabled: boolean;
+  backupCodesRemaining: number;
+}

@@ -2,8 +2,10 @@ import type { Context } from 'hono';
 import { deleteCookie, getCookie } from 'hono/cookie';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
 import { LoginService } from '@/modules/login/services/login.service';
+import { sessionsService } from '@/modules/sessions/services/sessions.service';
 
-const COOKIE_NAME = 'auth_token';
+const ACCESS_TOKEN_COOKIE = 'auth_token';
+const REFRESH_TOKEN_COOKIE = 'refresh_token';
 
 export class LogoutController {
   private loginService: LoginService;
@@ -14,11 +16,12 @@ export class LogoutController {
 
   async logout(c: Context) {
     // Get user info before deleting cookie for audit log
-    const token = getCookie(c, COOKIE_NAME);
+    const accessToken = getCookie(c, ACCESS_TOKEN_COOKIE);
+    const refreshToken = getCookie(c, REFRESH_TOKEN_COOKIE);
     let userId: string | null = null;
 
-    if (token) {
-      const user = await this.loginService.getUserFromToken(token);
+    if (accessToken) {
+      const user = await this.loginService.getUserFromToken(accessToken);
       userId = user?.id || null;
     }
 
@@ -28,7 +31,18 @@ export class LogoutController {
       || 'unknown';
     const userAgent = c.req.header('user-agent') || 'unknown';
 
-    deleteCookie(c, COOKIE_NAME, {
+    // Delete refresh token from database
+    if (refreshToken) {
+      await sessionsService.deleteRefreshToken(refreshToken);
+    }
+
+    // Delete access token cookie
+    deleteCookie(c, ACCESS_TOKEN_COOKIE, {
+      path: '/',
+    });
+
+    // Delete refresh token cookie
+    deleteCookie(c, REFRESH_TOKEN_COOKIE, {
       path: '/',
     });
 

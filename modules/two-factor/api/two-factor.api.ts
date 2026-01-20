@@ -1,14 +1,17 @@
 import { apiClient } from '@/lib/axios';
 import type { VerifyTwoFactorInput, VerifyTwoFactorLoginInput } from '../validations/schema/two-factor.schema';
-import type { TwoFactorSetupResponse, TwoFactorEmailSetupResponse, TwoFactorLoginResponse, TwoFactorMethod } from '../types/two-factor.types';
+import type { TwoFactorSetupResponse, TwoFactorEmailSetupResponse, TwoFactorLoginResponse, BackupCodesResponse, TwoFactorMethodResponse } from '../types/two-factor.types';
 
 interface MessageResponse {
   message: string;
 }
 
-interface TwoFactorMethodResponse {
-  method: TwoFactorMethod | null;
-  enabled: boolean;
+interface BackupCodeLoginResponse extends TwoFactorLoginResponse {
+  remainingCodes: number;
+}
+
+interface BackupCodesCountResponse {
+  remainingCodes: number;
 }
 
 export const twoFactorApi = {
@@ -51,7 +54,7 @@ export const twoFactorApi = {
     return response.data;
   },
 
-  verifyLogin: async (data: VerifyTwoFactorLoginInput): Promise<TwoFactorLoginResponse> => {
+  verifyLogin: async (data: VerifyTwoFactorLoginInput & { trustDevice?: boolean }): Promise<TwoFactorLoginResponse> => {
     const response = await apiClient.post<TwoFactorLoginResponse>('/two-factor/verify-login', data);
     return response.data;
   },
@@ -59,6 +62,22 @@ export const twoFactorApi = {
   // Get current method
   getMethod: async (): Promise<TwoFactorMethodResponse> => {
     const response = await apiClient.get<TwoFactorMethodResponse>('/two-factor/method');
+    return response.data;
+  },
+
+  // Backup codes methods
+  generateBackupCodes: async (): Promise<BackupCodesResponse> => {
+    const response = await apiClient.post<BackupCodesResponse>('/two-factor/backup-codes/generate');
+    return response.data;
+  },
+
+  verifyLoginWithBackupCode: async (data: { userId: string; code: string; trustDevice?: boolean }): Promise<BackupCodeLoginResponse> => {
+    const response = await apiClient.post<BackupCodeLoginResponse>('/two-factor/backup-codes/verify-login', data);
+    return response.data;
+  },
+
+  getBackupCodesCount: async (): Promise<BackupCodesCountResponse> => {
+    const response = await apiClient.get<BackupCodesCountResponse>('/two-factor/backup-codes/count');
     return response.data;
   },
 };

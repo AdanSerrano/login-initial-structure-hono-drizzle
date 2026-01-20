@@ -11,7 +11,8 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'your-secret-key'
 );
 
-const COOKIE_NAME = 'auth_token';
+const ACCESS_TOKEN_COOKIE = 'auth_token';
+const REFRESH_TOKEN_COOKIE = 'refresh_token';
 
 const isPublicRoute = (pathname: string): boolean => {
   return publicRoutes.includes(pathname);
@@ -40,23 +41,31 @@ export async function proxy(request: NextRequest) {
   const { nextUrl } = request;
   const { pathname } = nextUrl;
 
-  const token = request.cookies.get(COOKIE_NAME)?.value;
-  const isLoggedIn = token ? await verifyToken(token) : false;
+  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
 
-  // Permitir rutas de API de autenticación
+  // Verify access token
+  const isAccessTokenValid = accessToken ? await verifyToken(accessToken) : false;
+
+  // User is considered logged in if:
+  // 1. Access token is valid, OR
+  // 2. Access token expired but refresh token exists (will be refreshed on client)
+  const hasValidSession = isAccessTokenValid || (!isAccessTokenValid && !!refreshToken);
+
+  // Allow API auth routes (including refresh endpoint)
   if (isApiAuthRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Permitir rutas públicas
+  // Allow public routes
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Manejo de rutas de autenticación (login, register, etc.)
+  // Handle auth routes (login, register, etc.)
   if (isAuthRoute(pathname)) {
-    if (isLoggedIn) {
-      // Si está logueado, redirigir al callbackUrl o al redirect por defecto
+    if (hasValidSession) {
+      // If has valid session, redirect to callbackUrl or default redirect
       const callbackUrl = nextUrl.searchParams.get('callbackUrl');
       const redirectUrl =
         callbackUrl && !isAuthRoute(callbackUrl) && !isPublicRoute(callbackUrl)
@@ -64,22 +73,22 @@ export async function proxy(request: NextRequest) {
           : DEFAULT_LOGIN_REDIRECT;
       return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin));
     }
-    // Si no está logueado, permitir acceso a rutas de auth
+    // If no session, allow access to auth routes
     return NextResponse.next();
   }
 
-  // Para cualquier otra ruta (rutas protegidas)
-  // Si no está logueado, redirigir al login
-  if (!isLoggedIn) {
+  // For protected routes
+  // If no valid session, redirect to login
+  if (!hasValidSession) {
     const loginUrl = new URL('/login', nextUrl.origin);
-    // Guardar la URL original como callbackUrl para redirigir después del login
+    // Save original URL as callbackUrl for post-login redirect
     if (!isAuthRoute(pathname) && !isPublicRoute(pathname)) {
       loginUrl.searchParams.set('callbackUrl', pathname);
     }
     return NextResponse.redirect(loginUrl);
   }
 
-  // Usuario logueado accediendo a ruta protegida - permitir
+  // User has valid session (or needs to refresh) - allow access
   return NextResponse.next();
 }
 

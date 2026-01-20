@@ -10,6 +10,8 @@ import { ProfileSkeleton } from '../components/profile.skeleton';
 import { ProfileCard } from '../components/profile-card.component';
 import { EditProfileForm } from '../components/edit-profile-form.component';
 import { DangerZone } from '../components/danger-zone.component';
+import { ExportDataDialog } from '../components/export-data-dialog.component';
+import { ChangeEmailComponent } from '@/modules/email-change/components/change-email.component';
 
 export function ProfileView() {
   const { user, isLoading, isPending, updateUser } = useUser();
@@ -64,6 +66,24 @@ export function ProfileView() {
             isPending={isPending}
           />
         )}
+
+        {user.email && (
+          <ChangeEmailComponent currentEmail={user.email} />
+        )}
+
+        <Separator />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Privacidad y datos</CardTitle>
+            <CardDescription>
+              Gestiona tus datos personales y preferencias de privacidad.
+            </CardDescription>
+          </CardHeader>
+          <div className="px-6 pb-6">
+            <ExportDataDialog />
+          </div>
+        </Card>
 
         <Separator />
 

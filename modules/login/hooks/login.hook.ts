@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { loginApi } from '../api/login.api';
 import { emailVerificationApi } from '@/modules/email-verification/api/email-verification.api';
@@ -11,6 +11,8 @@ import type { LoginInput } from '../validations/schema/login.schema';
 
 export const useLogin = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [requiresTwoFactor, setRequiresTwoFactor] = useState(false);
@@ -67,7 +69,7 @@ export const useLogin = () => {
         if ('user' in data) {
           setUser(data.user);
           toast.success(`Bienvenido, ${data.user.name}`);
-          router.push('/');
+          router.push(callbackUrl);
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Error al iniciar sesión';

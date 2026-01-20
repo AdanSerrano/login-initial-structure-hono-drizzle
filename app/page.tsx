@@ -19,7 +19,7 @@ export default function Home() {
               <div className="animate-pulse h-8 w-24 bg-gray-200 rounded"></div>
             ) : isAuthenticated ? (
               <>
-                <Link href="/profile" className="text-sm text-gray-600 hover:text-gray-900">
+                <Link href="/settings/profile" className="text-sm text-gray-600 hover:text-gray-900">
                   Hola, <span className="font-medium">{user?.name}</span>
                 </Link>
                 <Button
@@ -56,7 +56,7 @@ export default function Home() {
           </p>
           {isAuthenticated && (
             <div className="mt-8">
-              <Link href="/profile">
+              <Link href="/settings/profile">
                 <Button>Ver mi perfil</Button>
               </Link>
             </div>

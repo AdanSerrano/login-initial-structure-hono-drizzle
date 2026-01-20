@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
 import type { UserResponse } from '../types/user.types';
 
 interface UserState {
@@ -13,32 +12,26 @@ interface UserActions {
   clearUser: () => void;
 }
 
-export const useUserStore = create<UserState & UserActions>()(
-  persist(
-    (set) => ({
+// No persistence - user state is fetched from server on each page load
+// Authentication is handled by httpOnly cookies
+export const useUserStore = create<UserState & UserActions>()((set) => ({
+  user: null,
+  isAuthenticated: false,
+
+  setUser: (user) =>
+    set({
+      user,
+      isAuthenticated: true,
+    }),
+
+  updateUser: (userData) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, ...userData } : null,
+    })),
+
+  clearUser: () =>
+    set({
       user: null,
       isAuthenticated: false,
-
-      setUser: (user) =>
-        set({
-          user,
-          isAuthenticated: true,
-        }),
-
-      updateUser: (userData) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...userData } : null,
-        })),
-
-      clearUser: () =>
-        set({
-          user: null,
-          isAuthenticated: false,
-        }),
     }),
-    {
-      name: 'user-storage',
-      storage: createJSONStorage(() => sessionStorage),
-    }
-  )
-);
+}));

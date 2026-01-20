@@ -8,6 +8,9 @@ import { passwordResetRoutes } from '@/modules/password-reset/routes/password-re
 import { emailVerificationRoutes } from '@/modules/email-verification/routes/email-verification.routes'
 import { twoFactorRoutes } from '@/modules/two-factor/routes/two-factor.routes'
 import { auditLogsRoutes } from '@/modules/audit-logs/routes/audit-logs.routes'
+import { sessionsRoutes } from '@/modules/sessions/routes/sessions.routes'
+import { emailChangeRoutes } from '@/modules/email-change/routes/email-change.routes'
+import { magicLinkRoutes } from '@/modules/magic-link/routes/magic-link.routes'
 
 const app = new Hono().basePath('/api')
 
@@ -25,6 +28,9 @@ app.route('/password-reset', passwordResetRoutes)
 app.route('/email-verification', emailVerificationRoutes)
 app.route('/two-factor', twoFactorRoutes)
 app.route('/audit-logs', auditLogsRoutes)
+app.route('/sessions', sessionsRoutes)
+app.route('/email-change', emailChangeRoutes)
+app.route('/magic-link', magicLinkRoutes)
 
 export const GET = handle(app)
 export const POST = handle(app)

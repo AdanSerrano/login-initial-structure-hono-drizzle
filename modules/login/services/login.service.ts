@@ -2,11 +2,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { LoginRepository } from '../repository/login.repository';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
+import { sessionsService } from '@/modules/sessions/services/sessions.service';
+import { trustedDevicesService } from '@/modules/trusted-devices/services/trusted-devices.service';
+import { getGeoLocation, isLocationDifferent, formatLocation } from '@/lib/geoip';
+import { sendSuspiciousLoginEmail } from '../emails/suspicious-login.emails';
 import type { LoginInput } from '../validations/schema/login.schema';
 import type { User, JwtPayload, LoginResult, TwoFactorMethod } from '../types/login.types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = '7d';
+const ACCESS_TOKEN_EXPIRES_IN = '15m'; // Access token: 15 minutes
 
 // Rate limiting constants
 const MAX_FAILED_ATTEMPTS = 5;
@@ -172,13 +176,21 @@ export class LoginService {
 
     // Check if 2FA is enabled
     if (existingUser.isTwoFactorEnabled && existingUser.twoFactorMethod) {
-      // Don't log LOGIN_SUCCESS yet - will be logged after 2FA verification
-      return {
-        success: true,
-        requiresTwoFactor: true,
-        userId: existingUser.id,
-        twoFactorMethod: existingUser.twoFactorMethod as TwoFactorMethod,
-      };
+      // Check if device is trusted (skip 2FA)
+      const isDeviceTrusted = ipAddress && userAgent
+        ? await trustedDevicesService.isDeviceTrusted(existingUser.id, userAgent, ipAddress)
+        : false;
+
+      if (!isDeviceTrusted) {
+        // Don't log LOGIN_SUCCESS yet - will be logged after 2FA verification
+        return {
+          success: true,
+          requiresTwoFactor: true,
+          userId: existingUser.id,
+          twoFactorMethod: existingUser.twoFactorMethod as TwoFactorMethod,
+        };
+      }
+      // Device is trusted, skip 2FA and continue with normal login
     }
 
     // Reset failed attempts on successful login
@@ -200,7 +212,14 @@ export class LoginService {
       updatedAt: existingUser.updatedAt,
     };
 
-    const token = this.generateToken(user);
+    // Generate access token (short-lived)
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+
+    // Generate refresh token (long-lived)
+    const { token: refreshToken, expiresAt: refreshTokenExpiresAt } = await sessionsService.createRefreshToken(
+      user.id,
+      { ipAddress, userAgent }
+    );
 
     // Log successful login
     await auditLogsService.log('LOGIN_SUCCESS', {
@@ -209,10 +228,93 @@ export class LoginService {
       userAgent,
     });
 
+    // Check for suspicious login (new location) - do this async to not block login
+    this.checkSuspiciousLogin(existingUser, ipAddress, userAgent).catch(err => {
+      console.error('Error checking suspicious login:', err);
+    });
+
     return {
       success: true,
-      data: { user, token },
+      data: {
+        user,
+        token: accessToken,
+        refreshToken,
+        refreshTokenExpiresAt,
+      },
     };
+  }
+
+  private async checkSuspiciousLogin(
+    existingUser: {
+      id: string;
+      email: string | null;
+      name: string | null;
+      lastLoginCountry: string | null;
+      lastLoginCity: string | null;
+      lastLoginIp: string | null;
+    },
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    if (!ipAddress || !existingUser.email) return;
+
+    // Get current location
+    const currentLocation = await getGeoLocation(ipAddress);
+    if (!currentLocation) return;
+
+    // Build previous location from stored data
+    const previousLocation = existingUser.lastLoginCountry ? {
+      country: existingUser.lastLoginCountry,
+      countryCode: null,
+      city: existingUser.lastLoginCity,
+      region: null,
+      timezone: null,
+      isp: null,
+    } : null;
+
+    // Check if location is different
+    const isSuspicious = isLocationDifferent(previousLocation, currentLocation);
+
+    if (isSuspicious) {
+      // Log suspicious login
+      await auditLogsService.log('SUSPICIOUS_LOGIN_DETECTED', {
+        userId: existingUser.id,
+        ipAddress,
+        userAgent,
+        metadata: {
+          previousLocation: previousLocation ? formatLocation(previousLocation) : null,
+          newLocation: formatLocation(currentLocation),
+          previousCountry: existingUser.lastLoginCountry,
+          previousCity: existingUser.lastLoginCity,
+          newCountry: currentLocation.country,
+          newCity: currentLocation.city,
+        },
+      });
+
+      // Send alert email
+      await sendSuspiciousLoginEmail({
+        to: existingUser.email,
+        userName: existingUser.name || undefined,
+        loginAt: new Date(),
+        newLocation: {
+          country: currentLocation.country || undefined,
+          city: currentLocation.city || undefined,
+        },
+        previousLocation: previousLocation ? {
+          country: previousLocation.country || undefined,
+          city: previousLocation.city || undefined,
+        } : undefined,
+        ipAddress,
+        deviceInfo: userAgent,
+      });
+    }
+
+    // Update last login location
+    await this.repository.updateLastLoginLocation(existingUser.id, {
+      country: currentLocation.country || undefined,
+      city: currentLocation.city || undefined,
+      ipAddress,
+    });
   }
 
   async getUserFromToken(token: string): Promise<User | null> {
@@ -240,11 +342,11 @@ export class LoginService {
     }
   }
 
-  private generateToken(user: User): string {
-    return jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+  generateAccessToken(user: User): string {
+    return sessionsService.generateAccessToken(user.id, user.email!);
+  }
+
+  async createRefreshToken(userId: string, options: LoginOptions = {}): Promise<{ token: string; expiresAt: Date }> {
+    return sessionsService.createRefreshToken(userId, options);
   }
 }

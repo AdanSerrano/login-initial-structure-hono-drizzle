@@ -5,8 +5,12 @@ import { TwoFactorService } from '../services/two-factor.service';
 import type { VerifyTwoFactorInput, VerifyTwoFactorLoginInput } from '../validations/schema/two-factor.schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const COOKIE_NAME = 'auth_token';
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+const ACCESS_TOKEN_COOKIE = 'auth_token';
+const REFRESH_TOKEN_COOKIE = 'refresh_token';
+
+// Cookie durations
+const ACCESS_TOKEN_MAX_AGE = 60 * 15; // 15 minutes
+const REFRESH_TOKEN_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 
 interface JwtPayload {
   userId: string;
@@ -21,7 +25,7 @@ export class TwoFactorController {
   }
 
   private async getUserIdFromToken(c: Context): Promise<string | null> {
-    const token = getCookie(c, COOKIE_NAME);
+    const token = getCookie(c, ACCESS_TOKEN_COOKIE);
     if (!token) return null;
 
     try {
@@ -38,6 +42,26 @@ export class TwoFactorController {
       || 'unknown';
     const userAgent = c.req.header('user-agent') || 'unknown';
     return { ipAddress, userAgent };
+  }
+
+  private setAuthCookies(c: Context, accessToken: string, refreshToken: string) {
+    // Set access token cookie (short-lived)
+    setCookie(c, ACCESS_TOKEN_COOKIE, accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      maxAge: ACCESS_TOKEN_MAX_AGE,
+      path: '/',
+    });
+
+    // Set refresh token cookie (long-lived)
+    setCookie(c, REFRESH_TOKEN_COOKIE, refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'Lax',
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+      path: '/',
+    });
   }
 
   // Setup 2FA with Authenticator (TOTP)
@@ -167,22 +191,19 @@ export class TwoFactorController {
 
   // Verify 2FA during login
   async verifyLogin(c: Context) {
-    const data = await c.req.json<VerifyTwoFactorLoginInput>();
+    const data = await c.req.json<VerifyTwoFactorLoginInput & { trustDevice?: boolean }>();
     const clientInfo = this.getClientInfo(c);
-    const result = await this.service.verifyTwoFactorLogin(data, clientInfo);
+    const result = await this.service.verifyTwoFactorLogin(
+      { userId: data.userId, code: data.code },
+      { ...clientInfo, trustDevice: data.trustDevice }
+    );
 
     if (!result.success) {
       return c.json({ error: result.error }, 401);
     }
 
-    // Set cookie with token
-    setCookie(c, COOKIE_NAME, result.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'Lax',
-      maxAge: COOKIE_MAX_AGE,
-      path: '/',
-    });
+    // Set both access and refresh token cookies
+    this.setAuthCookies(c, result.accessToken, result.refreshToken);
 
     return c.json({ user: result.data.user });
   }
@@ -202,5 +223,54 @@ export class TwoFactorController {
     }
 
     return c.json(result);
+  }
+
+  // Generate backup codes
+  async generateBackupCodes(c: Context) {
+    const userId = await this.getUserIdFromToken(c);
+
+    if (!userId) {
+      return c.json({ error: 'No autenticado' }, 401);
+    }
+
+    const clientInfo = this.getClientInfo(c);
+    const result = await this.service.generateBackupCodes(userId, clientInfo);
+
+    if (!result.success) {
+      return c.json({ error: result.error }, 400);
+    }
+
+    return c.json(result.data);
+  }
+
+  // Verify login with backup code
+  async verifyLoginWithBackupCode(c: Context) {
+    const data = await c.req.json<{ userId: string; code: string; trustDevice?: boolean }>();
+    const clientInfo = this.getClientInfo(c);
+    const result = await this.service.verifyTwoFactorLoginWithBackupCode(
+      { userId: data.userId, code: data.code },
+      { ...clientInfo, trustDevice: data.trustDevice }
+    );
+
+    if (!result.success) {
+      return c.json({ error: result.error }, 401);
+    }
+
+    // Set both access and refresh token cookies
+    this.setAuthCookies(c, result.accessToken, result.refreshToken);
+
+    return c.json({ user: result.data.user, remainingCodes: result.remainingCodes });
+  }
+
+  // Get remaining backup codes count
+  async getBackupCodesCount(c: Context) {
+    const userId = await this.getUserIdFromToken(c);
+
+    if (!userId) {
+      return c.json({ error: 'No autenticado' }, 401);
+    }
+
+    const count = await this.service.getRemainingBackupCodes(userId);
+    return c.json({ remainingCodes: count });
   }
 }

@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/pasword-input';
 import { Label } from '@/components/ui/label';
+import { PasswordStrengthIndicator } from '@/components/ui/password-strength-indicator';
 import { resetPasswordFormSchema, type ResetPasswordFormInput } from '../../validations/schema/password-reset.schema';
 
 interface Props {
@@ -17,6 +18,7 @@ export function ResetPasswordForm({ onSubmit, isPending, error }: Props) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<ResetPasswordFormInput>({
     resolver: zodResolver(resetPasswordFormSchema),
@@ -25,6 +27,8 @@ export function ResetPasswordForm({ onSubmit, isPending, error }: Props) {
       confirmPassword: '',
     },
   });
+
+  const password = watch('password');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -39,6 +43,7 @@ export function ResetPasswordForm({ onSubmit, isPending, error }: Props) {
         {errors.password && (
           <p className="text-sm text-red-500">{errors.password.message}</p>
         )}
+        <PasswordStrengthIndicator password={password || ''} />
       </div>
 
       <div className="space-y-2">
@@ -52,17 +57,6 @@ export function ResetPasswordForm({ onSubmit, isPending, error }: Props) {
         {errors.confirmPassword && (
           <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
         )}
-      </div>
-
-      <div className="text-xs text-gray-500 space-y-1">
-        <p>La contraseña debe contener:</p>
-        <ul className="list-disc list-inside">
-          <li>Al menos 8 caracteres</li>
-          <li>Al menos una mayúscula</li>
-          <li>Al menos una minúscula</li>
-          <li>Al menos un número</li>
-          <li>Al menos un carácter especial</li>
-        </ul>
       </div>
 
       {error && (

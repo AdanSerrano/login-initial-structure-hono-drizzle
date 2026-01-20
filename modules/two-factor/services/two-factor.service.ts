@@ -1,19 +1,20 @@
-import jwt from 'jsonwebtoken';
 import QRCode from 'qrcode';
 import { TwoFactorRepository } from '../repository/two-factor.repository';
-import { sendTwoFactorEmail } from '../emails/two-factor.emails';
+import { sendTwoFactorEmail, sendTwoFactorDisabledEmail } from '../emails/two-factor.emails';
 import { generateSixDigitCode, TOKEN_EXPIRY } from '@/lib/tokens';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
+import { sessionsService } from '@/modules/sessions/services/sessions.service';
+import { trustedDevicesService } from '@/modules/trusted-devices/services/trusted-devices.service';
 import type { VerifyTwoFactorInput, VerifyTwoFactorLoginInput } from '../validations/schema/two-factor.schema';
-import type { TwoFactorSetupResponse, TwoFactorEmailSetupResponse, TwoFactorLoginResponse, TwoFactorMethod } from '../types/two-factor.types';
+import type { TwoFactorSetupResponse, TwoFactorEmailSetupResponse, TwoFactorLoginResponse, TwoFactorMethod, BackupCodesResponse } from '../types/two-factor.types';
+import cryptoNode from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = '7d';
 const APP_NAME = process.env.APP_NAME || 'Mi Aplicación';
 
 export interface TwoFactorOptions {
   ipAddress?: string;
   userAgent?: string;
+  trustDevice?: boolean;
 }
 
 export class TwoFactorService {
@@ -229,7 +230,43 @@ export class TwoFactorService {
       metadata: { previousMethod },
     });
 
+    // Send security notification email
+    if (user.email) {
+      const deviceInfo = this.parseDeviceInfo(userAgent);
+      await sendTwoFactorDisabledEmail({
+        to: user.email,
+        userName: user.name ?? undefined,
+        disabledAt: new Date(),
+        ipAddress,
+        deviceInfo,
+      });
+    }
+
     return { success: true, message: 'Autenticación de dos factores deshabilitada' };
+  }
+
+  private parseDeviceInfo(userAgent?: string): string | undefined {
+    if (!userAgent) return undefined;
+
+    const ua = userAgent.toLowerCase();
+
+    // Browser detection
+    let browser = 'Navegador desconocido';
+    if (ua.includes('firefox')) browser = 'Firefox';
+    else if (ua.includes('edg/')) browser = 'Edge';
+    else if (ua.includes('chrome')) browser = 'Chrome';
+    else if (ua.includes('safari')) browser = 'Safari';
+    else if (ua.includes('opera') || ua.includes('opr/')) browser = 'Opera';
+
+    // OS detection
+    let os = '';
+    if (ua.includes('windows')) os = 'Windows';
+    else if (ua.includes('mac os') || ua.includes('macos')) os = 'macOS';
+    else if (ua.includes('linux')) os = 'Linux';
+    else if (ua.includes('android')) os = 'Android';
+    else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
+
+    return os ? `${browser} en ${os}` : browser;
   }
 
   // Send code for disabling 2FA via email
@@ -258,8 +295,8 @@ export class TwoFactorService {
   async verifyTwoFactorLogin(
     data: VerifyTwoFactorLoginInput,
     options: TwoFactorOptions = {}
-  ): Promise<{ success: true; data: TwoFactorLoginResponse; token: string } | { success: false; error: string }> {
-    const { ipAddress, userAgent } = options;
+  ): Promise<{ success: true; data: TwoFactorLoginResponse; accessToken: string; refreshToken: string } | { success: false; error: string }> {
+    const { ipAddress, userAgent, trustDevice } = options;
     const user = await this.repository.findUserById(data.userId);
 
     if (!user) {
@@ -290,11 +327,18 @@ export class TwoFactorService {
       await this.repository.deleteToken(tokenRecord.id);
     }
 
-    // Generate token
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+    // Trust device if requested
+    if (trustDevice && ipAddress && userAgent) {
+      await trustedDevicesService.trustDevice(user.id, userAgent, ipAddress);
+    }
+
+    // Generate access token (short-lived)
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+
+    // Generate refresh token (long-lived)
+    const { token: refreshToken } = await sessionsService.createRefreshToken(
+      user.id,
+      { ipAddress, userAgent }
     );
 
     // Log successful 2FA verification and login
@@ -302,7 +346,7 @@ export class TwoFactorService {
       userId: user.id,
       ipAddress,
       userAgent,
-      metadata: { method: user.twoFactorMethod },
+      metadata: { method: user.twoFactorMethod, deviceTrusted: !!trustDevice },
     });
 
     await auditLogsService.log('LOGIN_SUCCESS', {
@@ -329,7 +373,8 @@ export class TwoFactorService {
           updatedAt: user.updatedAt,
         },
       },
-      token,
+      accessToken,
+      refreshToken,
     };
   }
 
@@ -365,14 +410,201 @@ export class TwoFactorService {
   }
 
   // Get user's 2FA method
-  async getTwoFactorMethod(userId: string): Promise<{ method: TwoFactorMethod | null; enabled: boolean } | null> {
+  async getTwoFactorMethod(userId: string): Promise<{ method: TwoFactorMethod | null; enabled: boolean; backupCodesRemaining: number } | null> {
     const user = await this.repository.findUserById(userId);
     if (!user) return null;
+
+    const backupCodesRemaining = await this.repository.countRemainingBackupCodes(userId);
 
     return {
       method: user.twoFactorMethod as TwoFactorMethod | null,
       enabled: user.isTwoFactorEnabled,
+      backupCodesRemaining,
     };
+  }
+
+  // Backup Codes methods
+  async generateBackupCodes(
+    userId: string,
+    options: TwoFactorOptions = {}
+  ): Promise<{ success: true; data: BackupCodesResponse } | { success: false; error: string }> {
+    const { ipAddress, userAgent } = options;
+    const user = await this.repository.findUserById(userId);
+
+    if (!user) {
+      return { success: false, error: 'Usuario no encontrado' };
+    }
+
+    if (!user.isTwoFactorEnabled) {
+      return { success: false, error: 'Debes habilitar 2FA primero' };
+    }
+
+    // Delete existing backup codes
+    await this.repository.deleteAllBackupCodes(userId);
+
+    // Generate 10 new backup codes
+    const codes = this.generateBackupCodesList(10);
+
+    // Save hashed codes
+    await this.repository.createBackupCodes(userId, codes);
+
+    // Log backup codes generated
+    await auditLogsService.log('BACKUP_CODES_GENERATED', {
+      userId,
+      ipAddress,
+      userAgent,
+      metadata: { codesGenerated: 10 },
+    });
+
+    return {
+      success: true,
+      data: {
+        codes,
+        message: 'Guarda estos códigos en un lugar seguro. Cada código solo puede usarse una vez.',
+      },
+    };
+  }
+
+  async verifyBackupCode(
+    userId: string,
+    code: string,
+    options: TwoFactorOptions = {}
+  ): Promise<{ success: true; remainingCodes: number } | { success: false; error: string }> {
+    const { ipAddress, userAgent } = options;
+
+    // Find all unused backup codes for this user
+    const backupCodes = await this.repository.findUnusedBackupCodes(userId);
+
+    if (backupCodes.length === 0) {
+      return { success: false, error: 'No tienes códigos de respaldo disponibles' };
+    }
+
+    // Try to find matching code
+    const normalizedCode = code.replace(/\s|-/g, '').toUpperCase();
+    let matchedCode = null;
+
+    for (const bc of backupCodes) {
+      if (this.repository.verifyBackupCode(normalizedCode, bc.codeHash)) {
+        matchedCode = bc;
+        break;
+      }
+    }
+
+    if (!matchedCode) {
+      return { success: false, error: 'Código de respaldo inválido' };
+    }
+
+    // Mark code as used
+    await this.repository.markBackupCodeAsUsed(matchedCode.id);
+
+    // Log backup code used
+    await auditLogsService.log('BACKUP_CODE_USED', {
+      userId,
+      ipAddress,
+      userAgent,
+      metadata: { remainingCodes: backupCodes.length - 1 },
+    });
+
+    return {
+      success: true,
+      remainingCodes: backupCodes.length - 1,
+    };
+  }
+
+  async verifyTwoFactorLoginWithBackupCode(
+    data: { userId: string; code: string },
+    options: TwoFactorOptions = {}
+  ): Promise<{ success: true; data: TwoFactorLoginResponse; accessToken: string; refreshToken: string; remainingCodes: number } | { success: false; error: string }> {
+    const { ipAddress, userAgent, trustDevice } = options;
+    const user = await this.repository.findUserById(data.userId);
+
+    if (!user) {
+      return { success: false, error: 'Usuario no encontrado' };
+    }
+
+    if (!user.isTwoFactorEnabled) {
+      return { success: false, error: 'La autenticación de dos factores no está habilitada' };
+    }
+
+    // Verify backup code
+    const verifyResult = await this.verifyBackupCode(data.userId, data.code, options);
+
+    if (!verifyResult.success) {
+      return { success: false, error: verifyResult.error };
+    }
+
+    // Trust device if requested
+    if (trustDevice && ipAddress && userAgent) {
+      await trustedDevicesService.trustDevice(user.id, userAgent, ipAddress);
+    }
+
+    // Generate access token (short-lived)
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+
+    // Generate refresh token (long-lived)
+    const { token: refreshToken } = await sessionsService.createRefreshToken(
+      user.id,
+      { ipAddress, userAgent }
+    );
+
+    // Log successful 2FA verification and login
+    await auditLogsService.log('TWO_FACTOR_VERIFIED', {
+      userId: user.id,
+      ipAddress,
+      userAgent,
+      metadata: { method: 'BACKUP_CODE', deviceTrusted: !!trustDevice },
+    });
+
+    await auditLogsService.log('LOGIN_SUCCESS', {
+      userId: user.id,
+      ipAddress,
+      userAgent,
+      metadata: { via2FA: true, method: 'BACKUP_CODE' },
+    });
+
+    return {
+      success: true,
+      data: {
+        user: {
+          id: user.id,
+          userName: user.userName,
+          name: user.name,
+          email: user.email,
+          emailVerified: user.emailVerified,
+          image: user.image,
+          role: user.role,
+          isTwoFactorEnabled: user.isTwoFactorEnabled,
+          twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
+      },
+      accessToken,
+      refreshToken,
+      remainingCodes: verifyResult.remainingCodes,
+    };
+  }
+
+  /**
+   * Check if a device is trusted for a user (skip 2FA)
+   */
+  async isDeviceTrusted(userId: string, userAgent?: string, ipAddress?: string): Promise<boolean> {
+    if (!userAgent || !ipAddress) return false;
+    return trustedDevicesService.isDeviceTrusted(userId, userAgent, ipAddress);
+  }
+
+  async getRemainingBackupCodes(userId: string): Promise<number> {
+    return this.repository.countRemainingBackupCodes(userId);
+  }
+
+  private generateBackupCodesList(count: number): string[] {
+    const codes: string[] = [];
+    for (let i = 0; i < count; i++) {
+      // Generate 8 character alphanumeric code
+      const code = cryptoNode.randomBytes(4).toString('hex').toUpperCase();
+      codes.push(code);
+    }
+    return codes;
   }
 
   // TOTP Helper methods

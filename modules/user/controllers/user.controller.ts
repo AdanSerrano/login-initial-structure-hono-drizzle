@@ -2,6 +2,7 @@ import type { Context } from 'hono';
 import { getCookie } from 'hono/cookie';
 import jwt from 'jsonwebtoken';
 import { UserService } from '../services/user.service';
+import { dataExportService } from '../services/data-export.service';
 import type { UpdateUserInput } from '../validations/schema/user.schema';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -116,5 +117,21 @@ export class UserController {
       anonymizedCount: result.anonymizedCount,
       anonymizedUserIds: result.anonymizedUserIds,
     });
+  }
+
+  async exportData(c: Context) {
+    const userId = this.getUserIdFromToken(c);
+
+    if (!userId) {
+      return c.json({ error: 'No autenticado' }, 401);
+    }
+
+    const result = await dataExportService.exportUserData(userId);
+
+    if (!result.success) {
+      return c.json({ error: result.error }, 404);
+    }
+
+    return c.json(result.data);
   }
 }

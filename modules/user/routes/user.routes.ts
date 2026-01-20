@@ -21,4 +21,7 @@ userRoutes.post('/reactivate', (c) => controller.reactivateAccount(c));
 // POST /api/user/cleanup - Cleanup expired accounts (cron job, requires CRON_SECRET)
 userRoutes.post('/cleanup', (c) => controller.cleanupExpiredAccounts(c));
 
+// GET /api/user/export - Export user data (GDPR)
+userRoutes.get('/export', (c) => controller.exportData(c));
+
 export { userRoutes };

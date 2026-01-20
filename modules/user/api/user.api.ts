@@ -42,4 +42,9 @@ export const userApi = {
     }
     return response.data.message || 'Cuenta reactivada';
   },
+
+  exportData: async (): Promise<unknown> => {
+    const response = await apiClient.get('/user/export');
+    return response.data;
+  },
 };

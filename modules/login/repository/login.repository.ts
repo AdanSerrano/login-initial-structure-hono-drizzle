@@ -58,4 +58,23 @@ export class LoginRepository {
       })
       .where(eq(usersTable.id, id));
   }
+
+  async updateLastLoginLocation(
+    id: string,
+    data: {
+      country?: string;
+      city?: string;
+      ipAddress?: string;
+    }
+  ) {
+    await db
+      .update(usersTable)
+      .set({
+        lastLoginCountry: data.country || null,
+        lastLoginCity: data.city || null,
+        lastLoginIp: data.ipAddress || null,
+        lastLoginAt: new Date(),
+      })
+      .where(eq(usersTable.id, id));
+  }
 }

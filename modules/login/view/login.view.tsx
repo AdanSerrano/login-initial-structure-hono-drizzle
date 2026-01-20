@@ -8,6 +8,7 @@ import { ReactivateAccountDialog } from '../components/reactivate-account-dialog
 import { Button } from '@/components/ui/button';
 
 export function LoginView() {
+
   const {
     handleLogin,
     isPending,
@@ -110,13 +111,23 @@ export function LoginView() {
                 isPending={isPending}
                 error={error}
               />
-              <div className="mt-4 text-center">
-                <Link
-                  href="/forgot-password"
-                  className="text-sm text-blue-600 hover:text-blue-500"
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
+              <div className="mt-4 text-center space-y-2">
+                <div>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-blue-600 hover:text-blue-500"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </Link>
+                </div>
+                <div>
+                  <Link
+                    href="/magic-link"
+                    className="text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Iniciar sesión con enlace mágico
+                  </Link>
+                </div>
               </div>
             </>
           )}

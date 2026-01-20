@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useTwoFactorSetup } from '../hooks/two-factor.hook';
+import { useState, useEffect } from 'react';
+import { useTwoFactorSetup, useBackupCodes } from '../hooks/two-factor.hook';
 import { useUser } from '@/modules/user/hooks/user.hook';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { BackupCodesDialog } from './backup-codes-dialog.component';
+import { Key, AlertTriangle } from 'lucide-react';
 import type { TwoFactorSetupResponse } from '../types/two-factor.types';
 
 export function SecuritySettingsForm() {
@@ -47,9 +49,27 @@ export function SecuritySettingsForm() {
     cancelSetup,
   } = useTwoFactorSetup();
 
+  const {
+    isPending: isBackupPending,
+    codes: backupCodes,
+    showDialog: showBackupDialog,
+    remainingCodes,
+    generateCodes,
+    fetchRemainingCodes,
+    closeDialog: closeBackupDialog,
+    setShowDialog: setShowBackupDialog,
+  } = useBackupCodes();
+
   const [verifyCode, setVerifyCode] = useState('');
   const [disableCode, setDisableCode] = useState('');
   const [showDisableDialog, setShowDisableDialog] = useState(false);
+
+  // Fetch backup codes count when 2FA is enabled
+  useEffect(() => {
+    if (isTwoFactorEnabled) {
+      fetchRemainingCodes();
+    }
+  }, [isTwoFactorEnabled, fetchRemainingCodes]);
 
   const handleSelectMethod = (method: 'AUTHENTICATOR' | 'EMAIL') => {
     if (method === 'AUTHENTICATOR') {
@@ -197,6 +217,43 @@ export function SecuritySettingsForm() {
                 >
                   Desactivar
                 </Button>
+              </div>
+
+              {/* Backup Codes Section */}
+              <div className="border-t pt-4 mt-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-full bg-muted">
+                      <Key className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Códigos de respaldo</p>
+                      <p className="text-sm text-muted-foreground">
+                        Usa estos códigos si pierdes acceso a tu método de 2FA
+                      </p>
+                      {remainingCodes > 0 ? (
+                        <p className="text-sm mt-1">
+                          <span className={remainingCodes <= 2 ? 'text-amber-600 font-medium' : 'text-green-600'}>
+                            {remainingCodes} códigos disponibles
+                          </span>
+                        </p>
+                      ) : (
+                        <div className="flex items-center gap-1 mt-1 text-amber-600">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className="text-sm font-medium">Sin códigos disponibles</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateCodes}
+                    disabled={isBackupPending}
+                  >
+                    {remainingCodes > 0 ? 'Regenerar' : 'Generar'}
+                  </Button>
+                </div>
               </div>
             </div>
           )}
@@ -403,6 +460,15 @@ export function SecuritySettingsForm() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Backup Codes Dialog */}
+      <BackupCodesDialog
+        open={showBackupDialog}
+        onOpenChange={setShowBackupDialog}
+        codes={backupCodes}
+        isGenerating={isBackupPending}
+        onRegenerate={generateCodes}
+      />
     </div>
   );
 }

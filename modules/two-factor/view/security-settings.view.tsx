@@ -1,6 +1,7 @@
 'use client';
 
 import { SecuritySettingsForm } from '../components/security-settings.form';
+import { ActiveSessionsComponent } from '@/modules/sessions/components/active-sessions.component';
 import { ActivityLogComponent } from '@/modules/audit-logs/components/activity-log.component';
 
 export function SecuritySettingsView() {
@@ -16,6 +17,7 @@ export function SecuritySettingsView() {
       </div>
       <div className="space-y-6">
         <SecuritySettingsForm />
+        <ActiveSessionsComponent />
         <ActivityLogComponent />
       </div>
     </div>

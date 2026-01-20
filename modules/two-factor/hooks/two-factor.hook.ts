@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { twoFactorApi } from '../api/two-factor.api';
 import { useUserStore } from '@/modules/user/state/user.state';
@@ -159,9 +159,12 @@ export const useTwoFactorSetup = () => {
 
 export const useTwoFactorLogin = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/';
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [codeSent, setCodeSent] = useState(false);
+  const [useBackupCode, setUseBackupCode] = useState(false);
   const { setUser } = useUserStore();
 
   const sendCode = async (userId: string) => {
@@ -179,14 +182,14 @@ export const useTwoFactorLogin = () => {
     });
   };
 
-  const verifyLogin = async (values: VerifyTwoFactorLoginInput) => {
+  const verifyLogin = async (values: VerifyTwoFactorLoginInput & { trustDevice?: boolean }) => {
     setError(null);
     startTransition(async () => {
       try {
         const data = await twoFactorApi.verifyLogin(values);
         setUser(data.user);
         toast.success(`Bienvenido, ${data.user.name}`);
-        router.push('/');
+        router.push(callbackUrl);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Código inválido';
         setError(message);
@@ -195,11 +198,89 @@ export const useTwoFactorLogin = () => {
     });
   };
 
+  const verifyWithBackupCode = async (userId: string, code: string, trustDevice?: boolean) => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const data = await twoFactorApi.verifyLoginWithBackupCode({ userId, code, trustDevice });
+        setUser(data.user);
+        if (data.remainingCodes <= 2) {
+          toast.warning(`Te quedan solo ${data.remainingCodes} códigos de respaldo. Considera regenerarlos.`);
+        }
+        toast.success(`Bienvenido, ${data.user.name}`);
+        router.push(callbackUrl);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Código de respaldo inválido';
+        setError(message);
+        toast.error(message);
+      }
+    });
+  };
+
+  const toggleBackupCodeMode = () => {
+    setUseBackupCode(!useBackupCode);
+    setError(null);
+  };
+
   return {
     isPending,
     error,
     codeSent,
+    useBackupCode,
     sendCode,
     verifyLogin,
+    verifyWithBackupCode,
+    toggleBackupCodeMode,
+  };
+};
+
+export const useBackupCodes = () => {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [codes, setCodes] = useState<string[]>([]);
+  const [showDialog, setShowDialog] = useState(false);
+  const [remainingCodes, setRemainingCodes] = useState<number>(0);
+
+  const generateCodes = async () => {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const data = await twoFactorApi.generateBackupCodes();
+        setCodes(data.codes);
+        setShowDialog(true);
+        setRemainingCodes(data.codes.length);
+        toast.success('Códigos de respaldo generados');
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error al generar códigos';
+        setError(message);
+        toast.error(message);
+      }
+    });
+  };
+
+  const fetchRemainingCodes = async () => {
+    try {
+      const data = await twoFactorApi.getBackupCodesCount();
+      setRemainingCodes(data.remainingCodes);
+    } catch {
+      // Silently fail
+    }
+  };
+
+  const closeDialog = () => {
+    setShowDialog(false);
+    setCodes([]);
+  };
+
+  return {
+    isPending,
+    error,
+    codes,
+    showDialog,
+    remainingCodes,
+    generateCodes,
+    fetchRemainingCodes,
+    closeDialog,
+    setShowDialog,
   };
 };

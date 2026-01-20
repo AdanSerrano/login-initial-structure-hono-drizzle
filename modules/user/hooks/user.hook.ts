@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { userApi } from '../api/user.api';
 import { useUserStore } from '../state/user.state';
@@ -11,13 +11,14 @@ export const useUser = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user, isAuthenticated, setUser, updateUser: storeUpdateUser, clearUser } = useUserStore();
+  const hasHydrated = useRef(false);
 
   const fetchUser = async () => {
     setIsLoading(true);
     try {
       const userData = await userApi.getMe();
       setUser(userData);
-    } catch (err) {
+    } catch {
       clearUser();
     } finally {
       setIsLoading(false);
@@ -55,12 +56,22 @@ export const useUser = () => {
   };
 
   useEffect(() => {
-    if (!user && isAuthenticated) {
-      fetchUser();
-    } else {
+    // Skip fetch if already hydrated from server via SessionProvider
+    if (hasHydrated.current) {
       setIsLoading(false);
+      return;
     }
-  }, []);
+    hasHydrated.current = true;
+
+    // If user was hydrated from server, no need to fetch
+    if (user) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Only fetch if not hydrated (e.g., client-side navigation after login)
+    fetchUser();
+  }, [user]);
 
   return {
     user,

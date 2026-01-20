@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PasswordInput } from '@/components/ui/pasword-input';
 import { Label } from '@/components/ui/label';
+import { PasswordStrengthIndicator } from '@/components/ui/password-strength-indicator';
 import { registerSchema, type RegisterInput } from '../../validations/schema/register.schema';
 
 interface Props {
@@ -18,6 +19,7 @@ export function RegisterForm({ onSubmit, isPending, error }: Props) {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -29,6 +31,8 @@ export function RegisterForm({ onSubmit, isPending, error }: Props) {
       confirmPassword: '',
     },
   });
+
+  const password = watch('password');
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -85,6 +89,7 @@ export function RegisterForm({ onSubmit, isPending, error }: Props) {
         {errors.password && (
           <p className="text-sm text-red-500">{errors.password.message}</p>
         )}
+        <PasswordStrengthIndicator password={password || ''} />
       </div>
 
       <div className="space-y-2">
@@ -98,17 +103,6 @@ export function RegisterForm({ onSubmit, isPending, error }: Props) {
         {errors.confirmPassword && (
           <p className="text-sm text-red-500">{errors.confirmPassword.message}</p>
         )}
-      </div>
-
-      <div className="text-xs text-gray-500 space-y-1">
-        <p>La contraseña debe contener:</p>
-        <ul className="list-disc list-inside">
-          <li>Al menos 8 caracteres</li>
-          <li>Al menos una mayúscula</li>
-          <li>Al menos una minúscula</li>
-          <li>Al menos un número</li>
-          <li>Al menos un carácter especial</li>
-        </ul>
       </div>
 
       {error && (

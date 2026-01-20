@@ -18,5 +18,9 @@ export const twoFactorRoutes = new Hono()
   // Login endpoints
   .post('/send-login-code', (c) => twoFactorController.sendLoginCode(c))
   .post('/verify-login', zValidator('json', verifyTwoFactorLoginSchema), (c) => twoFactorController.verifyLogin(c))
+  // Backup codes endpoints
+  .post('/backup-codes/generate', (c) => twoFactorController.generateBackupCodes(c))
+  .post('/backup-codes/verify-login', (c) => twoFactorController.verifyLoginWithBackupCode(c))
+  .get('/backup-codes/count', (c) => twoFactorController.getBackupCodesCount(c))
   // Get method
   .get('/method', (c) => twoFactorController.getMethod(c));
