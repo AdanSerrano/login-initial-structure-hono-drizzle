@@ -212,8 +212,8 @@ export class LoginService {
       updatedAt: existingUser.updatedAt,
     };
 
-    // Generate access token (short-lived)
-    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+    // Generate access token (short-lived) with user data embedded
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!, user);
 
     // Generate refresh token (long-lived)
     const { token: refreshToken, expiresAt: refreshTokenExpiresAt } = await sessionsService.createRefreshToken(

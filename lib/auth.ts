@@ -15,6 +15,13 @@ const REFRESH_TOKEN_COOKIE = 'refresh_token';
 interface JwtPayload {
   userId: string;
   email: string;
+  name?: string | null;
+  userName?: string | null;
+  emailVerified?: string | null; // ISO date string stored in JWT
+  image?: string | null;
+  role?: string;
+  isTwoFactorEnabled?: boolean;
+  twoFactorMethod?: string | null;
 }
 
 /**
@@ -38,7 +45,27 @@ export async function auth(): Promise<{ user: UserResponse } | null> {
     if (accessToken) {
       try {
         const { payload } = await jwtVerify(accessToken, JWT_SECRET);
-        userId = (payload as unknown as JwtPayload).userId;
+        const jwtData = payload as unknown as JwtPayload;
+        userId = jwtData.userId;
+
+        // If JWT contains user data, use it directly (faster, no DB query)
+        if (jwtData.name !== undefined) {
+          return {
+            user: {
+              id: jwtData.userId,
+              email: jwtData.email,
+              name: jwtData.name || null,
+              userName: jwtData.userName || null,
+              emailVerified: jwtData.emailVerified ? new Date(jwtData.emailVerified) : null,
+              image: jwtData.image || null,
+              role: jwtData.role || 'user',
+              isTwoFactorEnabled: jwtData.isTwoFactorEnabled || false,
+              twoFactorMethod: jwtData.twoFactorMethod || null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as UserResponse,
+          };
+        }
       } catch {
         // Access token invalid/expired, but we have refresh token
         // The client will handle refresh via axios interceptor
@@ -48,7 +75,7 @@ export async function auth(): Promise<{ user: UserResponse } | null> {
       }
     }
 
-    // If access token is valid, get user
+    // Fallback: If access token is valid but doesn't have user data, query DB
     if (userId) {
       const users = await db
         .select({

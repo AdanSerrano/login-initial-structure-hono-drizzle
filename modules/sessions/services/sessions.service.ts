@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import { SessionsRepository } from '../repository/sessions.repository';
 import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
 import type { Session, RefreshTokenResult } from '../types/sessions.types';
-import type { TwoFactorMethod } from '@/modules/login/types/login.types';
+import type { User, TwoFactorMethod } from '@/modules/login/types/login.types';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
@@ -24,13 +24,24 @@ export class SessionsService {
 
   /**
    * Generate access token (short-lived JWT)
+   * Includes full user data to avoid DB queries on every request
    */
-  generateAccessToken(userId: string, email: string): string {
-    return jwt.sign(
-      { userId, email },
-      JWT_SECRET,
-      { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
-    );
+  generateAccessToken(userId: string, email: string, userData?: Partial<User>): string {
+    const payload = {
+      userId,
+      email,
+      // Include user data if provided (for faster auth() without DB query)
+      ...(userData && {
+        name: userData.name,
+        userName: userData.userName,
+        emailVerified: userData.emailVerified,
+        image: userData.image,
+        role: userData.role,
+        isTwoFactorEnabled: userData.isTwoFactorEnabled,
+        twoFactorMethod: userData.twoFactorMethod,
+      }),
+    };
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRES_IN });
   }
 
   /**
@@ -95,26 +106,28 @@ export class SessionsService {
     // Update last used
     await this.repository.updateLastUsedAt(tokenRecord.id);
 
-    // Generate new access token
-    const accessToken = this.generateAccessToken(user.id, user.email!);
+    const userData = {
+      id: user.id,
+      userName: user.userName,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      image: user.image,
+      role: user.role,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
+      twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    // Generate new access token with user data
+    const accessToken = this.generateAccessToken(user.id, user.email!, userData);
 
     return {
       success: true,
       data: {
         accessToken,
-        user: {
-          id: user.id,
-          userName: user.userName,
-          name: user.name,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          image: user.image,
-          role: user.role,
-          isTwoFactorEnabled: user.isTwoFactorEnabled,
-          twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
+        user: userData,
       },
     };
   }

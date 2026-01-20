@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect, useRef } from 'react';
+import { useState, useTransition } from 'react';
 import { toast } from 'sonner';
 import { userApi } from '../api/user.api';
 import { useUserStore } from '../state/user.state';
@@ -9,17 +9,18 @@ import type { UpdateUserInput } from '../types/user.types';
 export const useUser = () => {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user, isAuthenticated, setUser, updateUser: storeUpdateUser, clearUser } = useUserStore();
-  const hasHydrated = useRef(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const { user, isAuthenticated, isHydrated, setUser, updateUser: storeUpdateUser, clearUser } = useUserStore();
 
   const fetchUser = async () => {
     setIsLoading(true);
     try {
       const userData = await userApi.getMe();
       setUser(userData);
+      return userData;
     } catch {
       clearUser();
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -55,27 +56,13 @@ export const useUser = () => {
     });
   };
 
-  useEffect(() => {
-    // Skip fetch if already hydrated from server via SessionProvider
-    if (hasHydrated.current) {
-      setIsLoading(false);
-      return;
-    }
-    hasHydrated.current = true;
-
-    // If user was hydrated from server, no need to fetch
-    if (user) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Only fetch if not hydrated (e.g., client-side navigation after login)
-    fetchUser();
-  }, [user]);
+  // No automatic fetch - SessionProvider handles initial hydration
+  // fetchUser() can be called manually when needed (e.g., after login)
 
   return {
     user,
     isAuthenticated,
+    isHydrated,
     isLoading,
     isPending,
     error,

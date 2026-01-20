@@ -39,33 +39,33 @@ async function verifyToken(token: string): Promise<boolean> {
 
 export async function proxy(request: NextRequest) {
   const { nextUrl } = request;
-  const { pathname } = nextUrl;
+  let { pathname } = nextUrl;
 
-  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
-  const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+  // Normalize pathname - remove trailing slash except for root
+  if (pathname !== '/' && pathname.endsWith('/')) {
+    pathname = pathname.slice(0, -1);
+  }
 
-  // Verify access token
-  const isAccessTokenValid = accessToken ? await verifyToken(accessToken) : false;
-
-  // User is considered logged in if:
-  // 1. Access token is valid, OR
-  // 2. Access token expired but refresh token exists (will be refreshed on client)
-  const hasValidSession = isAccessTokenValid || (!isAccessTokenValid && !!refreshToken);
-
-  // Allow API auth routes (including refresh endpoint)
+  // 1. Allow API routes (handled by Hono)
   if (isApiAuthRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Allow public routes
+  // 2. Allow public routes - NO authentication check needed
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  // Handle auth routes (login, register, etc.)
+  // 3. For auth routes and protected routes, we need to check session
+  const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
+  const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+  const isAccessTokenValid = accessToken ? await verifyToken(accessToken) : false;
+  const hasValidSession = isAccessTokenValid || (!isAccessTokenValid && !!refreshToken);
+
+  // 4. Auth routes (login, register, etc.) - for unauthenticated users
   if (isAuthRoute(pathname)) {
     if (hasValidSession) {
-      // If has valid session, redirect to callbackUrl or default redirect
+      // Authenticated user trying to access auth pages - redirect away
       const callbackUrl = nextUrl.searchParams.get('callbackUrl');
       const redirectUrl =
         callbackUrl && !isAuthRoute(callbackUrl) && !isPublicRoute(callbackUrl)
@@ -73,28 +73,29 @@ export async function proxy(request: NextRequest) {
           : DEFAULT_LOGIN_REDIRECT;
       return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin));
     }
-    // If no session, allow access to auth routes
+    // Not authenticated - allow access to auth routes
     return NextResponse.next();
   }
 
-  // For protected routes
-  // If no valid session, redirect to login
+  // 5. Protected routes - require authentication
   if (!hasValidSession) {
     const loginUrl = new URL('/login', nextUrl.origin);
-    // Save original URL as callbackUrl for post-login redirect
-    if (!isAuthRoute(pathname) && !isPublicRoute(pathname)) {
-      loginUrl.searchParams.set('callbackUrl', pathname);
-    }
+    loginUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  // User has valid session (or needs to refresh) - allow access
+  // 6. Authenticated user accessing protected route - allow
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.jpeg$|.*\\.gif$|.*\\.svg$|.*\\.ico$|.*\\.webp$).*)',
-    '/',
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, images, etc.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|ico|webp)$).*)',
   ],
 };

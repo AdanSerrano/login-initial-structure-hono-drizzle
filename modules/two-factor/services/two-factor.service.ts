@@ -332,8 +332,22 @@ export class TwoFactorService {
       await trustedDevicesService.trustDevice(user.id, userAgent, ipAddress);
     }
 
-    // Generate access token (short-lived)
-    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+    const userData = {
+      id: user.id,
+      userName: user.userName,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      image: user.image,
+      role: user.role,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
+      twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    // Generate access token (short-lived) with user data embedded
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!, userData);
 
     // Generate refresh token (long-lived)
     const { token: refreshToken } = await sessionsService.createRefreshToken(
@@ -358,21 +372,7 @@ export class TwoFactorService {
 
     return {
       success: true,
-      data: {
-        user: {
-          id: user.id,
-          userName: user.userName,
-          name: user.name,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          image: user.image,
-          role: user.role,
-          isTwoFactorEnabled: user.isTwoFactorEnabled,
-          twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      },
+      data: { user: userData },
       accessToken,
       refreshToken,
     };
@@ -538,8 +538,22 @@ export class TwoFactorService {
       await trustedDevicesService.trustDevice(user.id, userAgent, ipAddress);
     }
 
-    // Generate access token (short-lived)
-    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+    const userData = {
+      id: user.id,
+      userName: user.userName,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      image: user.image,
+      role: user.role,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
+      twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    // Generate access token (short-lived) with user data embedded
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!, userData);
 
     // Generate refresh token (long-lived)
     const { token: refreshToken } = await sessionsService.createRefreshToken(
@@ -564,21 +578,7 @@ export class TwoFactorService {
 
     return {
       success: true,
-      data: {
-        user: {
-          id: user.id,
-          userName: user.userName,
-          name: user.name,
-          email: user.email,
-          emailVerified: user.emailVerified,
-          image: user.image,
-          role: user.role,
-          isTwoFactorEnabled: user.isTwoFactorEnabled,
-          twoFactorMethod: user.twoFactorMethod as TwoFactorMethod | null,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-        },
-      },
+      data: { user: userData },
       accessToken,
       refreshToken,
       remainingCodes: verifyResult.remainingCodes,

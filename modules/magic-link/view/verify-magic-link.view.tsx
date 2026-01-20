@@ -25,8 +25,9 @@ export function VerifyMagicLinkView({ token }: Props) {
       const result = await verifyMagicLink(token);
       if (result) {
         setSuccess(true);
-        // Redirect to dashboard after 2 seconds
+        // Refresh server components and redirect after 2 seconds
         setTimeout(() => {
+          router.refresh();
           router.push('/settings/security');
         }, 2000);
       }
@@ -116,7 +117,7 @@ export function VerifyMagicLinkView({ token }: Props) {
         <p className="text-sm text-muted-foreground mb-4">
           Serás redirigido automáticamente...
         </p>
-        <Button onClick={() => router.push('/settings')}>
+        <Button onClick={() => { router.refresh(); router.push('/settings/profile'); }}>
           Ir a configuración
         </Button>
       </CardContent>

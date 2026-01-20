@@ -60,8 +60,13 @@ export const loginApi = {
         };
       }
 
-      // Re-throw other errors
-      throw error;
+      // Handle 401 errors with custom message from backend
+      if (axiosError.response?.status === 401 && axiosError.response.data?.error) {
+        throw new Error(axiosError.response.data.error);
+      }
+
+      // Re-throw other errors with a generic message
+      throw new Error(axiosError.response?.data?.error || 'Error al iniciar sesión');
     }
   },
 };

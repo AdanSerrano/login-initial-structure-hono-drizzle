@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { publicRoutes, authRoutes } from '@/routes';
 
 // Flag to prevent multiple simultaneous refresh requests
 let isRefreshing = false;
@@ -68,11 +69,15 @@ apiClient.interceptors.response.use(
 
         // Clear any stored user state and redirect
         if (typeof window !== 'undefined') {
-          // Don't redirect if already on an auth page
           const currentPath = window.location.pathname;
-          if (!currentPath.startsWith('/login') &&
-              !currentPath.startsWith('/register') &&
-              !currentPath.startsWith('/forgot-password')) {
+
+          // Don't redirect if on public routes, auth routes, or already redirecting
+          const isPublicRoute = publicRoutes.includes(currentPath);
+          const isAuthRoute = authRoutes.some(
+            (route) => currentPath === route || currentPath.startsWith(`${route}/`)
+          );
+
+          if (!isPublicRoute && !isAuthRoute) {
             window.location.href = `/login?callbackUrl=${encodeURIComponent(currentPath)}`;
           }
         }

@@ -127,8 +127,21 @@ export class MagicLinkService {
       // The email is verified by virtue of having access to it
     }
 
-    // Generate session tokens
-    const accessToken = sessionsService.generateAccessToken(user.id, user.email!);
+    // Full user data for JWT payload (to avoid DB queries later)
+    const userDataForToken = {
+      id: user.id,
+      userName: user.userName,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified || new Date(), // Magic link verifies email
+      image: user.image,
+      role: user.role,
+      isTwoFactorEnabled: user.isTwoFactorEnabled,
+      twoFactorMethod: user.twoFactorMethod,
+    };
+
+    // Generate session tokens with user data embedded
+    const accessToken = sessionsService.generateAccessToken(user.id, user.email!, userDataForToken);
     const { token: refreshToken, expiresAt: refreshTokenExpiresAt } =
       await sessionsService.createRefreshToken(user.id, { ipAddress, userAgent });
 

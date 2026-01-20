@@ -188,7 +188,9 @@ export const useTwoFactorLogin = () => {
       try {
         const data = await twoFactorApi.verifyLogin(values);
         setUser(data.user);
-        toast.success(`Bienvenido, ${data.user.name}`);
+        toast.success(`Bienvenido, ${data.user.name || 'usuario'}`);
+        // Refresh to update server components with new session, then navigate
+        router.refresh();
         router.push(callbackUrl);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Código inválido';
@@ -207,7 +209,9 @@ export const useTwoFactorLogin = () => {
         if (data.remainingCodes <= 2) {
           toast.warning(`Te quedan solo ${data.remainingCodes} códigos de respaldo. Considera regenerarlos.`);
         }
-        toast.success(`Bienvenido, ${data.user.name}`);
+        toast.success(`Bienvenido, ${data.user.name || 'usuario'}`);
+        // Refresh to update server components with new session, then navigate
+        router.refresh();
         router.push(callbackUrl);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Código de respaldo inválido';

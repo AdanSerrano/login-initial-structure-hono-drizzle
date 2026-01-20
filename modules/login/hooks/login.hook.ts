@@ -68,7 +68,9 @@ export const useLogin = () => {
         // Normal login success
         if ('user' in data) {
           setUser(data.user);
-          toast.success(`Bienvenido, ${data.user.name}`);
+          toast.success(`Bienvenido, ${data.user.name || 'usuario'}`);
+          // Refresh to update server components with new session, then navigate
+          router.refresh();
           router.push(callbackUrl);
         }
       } catch (err) {
