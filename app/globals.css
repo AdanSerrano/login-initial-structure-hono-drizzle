@@ -127,6 +127,17 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  /* Smooth scroll global */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Scroll margin for anchor links (avoid content being hidden by sticky header) */
+  [id] {
+    scroll-margin-top: 100px;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
   }
@@ -607,5 +618,9 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
   }
 }
