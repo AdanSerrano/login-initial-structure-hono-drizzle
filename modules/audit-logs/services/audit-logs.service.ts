@@ -1,6 +1,7 @@
 import { AuditLogsRepository } from '../repository/audit-logs.repository';
 import type { AuditAction } from '@/db/schema';
 import type { AuditLogListResponse } from '../types/audit-logs.types';
+import { createPaginatedResponse } from '@/types/pagination.types';
 
 export class AuditLogsService {
   private repository: AuditLogsRepository;
@@ -27,26 +28,23 @@ export class AuditLogsService {
         metadata: options.metadata,
       });
     } catch (error) {
-      // Log error but don't fail the main operation
       console.error('Failed to create audit log:', error);
     }
   }
 
-  async getActivityLog(userId: string, limit = 20, offset = 0): Promise<AuditLogListResponse> {
+  async getActivityLog(userId: string, page = 1, limit = 20): Promise<AuditLogListResponse> {
+    const offset = (page - 1) * limit;
+
     const [logs, total] = await Promise.all([
       this.repository.findByUserId(userId, limit, offset),
       this.repository.countByUserId(userId),
     ]);
 
-    return {
-      logs,
-      total,
-      hasMore: offset + logs.length < total,
-    };
+    return createPaginatedResponse(logs, page, limit, total);
   }
 
   async getRecentActivity(userId: string, limit = 10): Promise<AuditLogListResponse> {
-    return this.getActivityLog(userId, limit, 0);
+    return this.getActivityLog(userId, 1, limit);
   }
 }
 

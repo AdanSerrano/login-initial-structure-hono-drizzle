@@ -1,51 +1,67 @@
 'use client';
 
+import { useState, useTransition } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { DeleteAccountDialog } from './delete-account-dialog.component';
+import { userApi } from '../api/user.api';
+import { logoutApi } from '@/modules/logout/api/logout.api';
+import { useUserStore } from '../state/user.state';
+import { useRouter } from 'next/navigation';
 
-interface DangerZoneProps {
-  onDeleteAccount: () => void;
-}
+export function DangerZone() {
+  const router = useRouter();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const { clearUser } = useUserStore();
 
-export function DangerZone({ onDeleteAccount }: DangerZoneProps) {
+  const handleDeleteAccount = async () => {
+    startTransition(async () => {
+      try {
+        const message = await userApi.deleteMe();
+        setIsDialogOpen(false);
+
+        // Cerrar sesión después de eliminar la cuenta
+        try {
+          await logoutApi.logout();
+        } catch {
+          // Continuar aunque falle el logout del servidor
+        }
+
+        clearUser();
+        toast.success(message);
+        router.push('/login');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Error al eliminar la cuenta';
+        toast.error(errorMessage);
+      }
+    });
+  };
+
   return (
-    <Card className="border-red-200">
-      <CardHeader>
-        <CardTitle className="text-red-600">Zona de peligro</CardTitle>
-        <CardDescription>Acciones irreversibles para tu cuenta</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive">Eliminar cuenta</Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta acción no se puede deshacer. Esto eliminará permanentemente tu cuenta y todos tus datos.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={onDeleteAccount} className="bg-red-600 hover:bg-red-700">
-                Eliminar cuenta
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </CardContent>
-    </Card>
+    <>
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Zona de peligro</CardTitle>
+          <CardDescription>
+            Una vez que elimines tu cuenta, tendrás 30 días para reactivarla. Después de ese período,
+            todos tus datos serán eliminados permanentemente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="destructive" onClick={() => setIsDialogOpen(true)}>
+            Eliminar cuenta
+          </Button>
+        </CardContent>
+      </Card>
+
+      <DeleteAccountDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onConfirm={handleDeleteAccount}
+        isPending={isPending}
+      />
+    </>
   );
 }

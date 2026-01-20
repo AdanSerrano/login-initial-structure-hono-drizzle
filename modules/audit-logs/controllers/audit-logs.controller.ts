@@ -27,10 +27,10 @@ export class AuditLogsController {
       return c.json({ error: 'No autorizado' }, 401);
     }
 
+    const page = parseInt(c.req.query('page') || '1', 10);
     const limit = parseInt(c.req.query('limit') || '20', 10);
-    const offset = parseInt(c.req.query('offset') || '0', 10);
 
-    const result = await this.service.getActivityLog(user.id, limit, offset);
+    const result = await this.service.getActivityLog(user.id, page, limit);
 
     return c.json(result);
   }

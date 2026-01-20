@@ -29,4 +29,5 @@ export type LoginResult =
   | { success: true; data: LoginResponse }
   | { success: true; requiresTwoFactor: true; userId: string; twoFactorMethod: TwoFactorMethod }
   | { success: false; error: string }
-  | { success: false; requiresEmailVerification: true; email: string };
+  | { success: false; requiresEmailVerification: true; email: string }
+  | { success: false; accountDeleted: true; daysRemaining: number; email: string; error: string };

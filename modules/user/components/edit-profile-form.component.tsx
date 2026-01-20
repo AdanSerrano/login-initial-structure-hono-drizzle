@@ -52,7 +52,7 @@ export function EditProfileForm({ initialData, onSubmit, onCancel, isPending }: 
             />
           </div>
         </CardContent>
-        <CardFooter className="flex gap-2">
+        <CardFooter className="flex gap-2 mt-3">
           <Button type="submit" disabled={isPending} className="flex-1">
             {isPending ? 'Guardando...' : 'Guardar cambios'}
           </Button>

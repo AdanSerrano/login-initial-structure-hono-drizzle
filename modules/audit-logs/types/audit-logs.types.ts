@@ -1,4 +1,5 @@
 import type { AuditAction } from '@/db/schema';
+import type { PaginatedResponse } from '@/types/pagination.types';
 
 export interface AuditLogEntry {
   id: string;
@@ -18,11 +19,7 @@ export interface CreateAuditLogInput {
   metadata?: Record<string, unknown> | null;
 }
 
-export interface AuditLogListResponse {
-  logs: AuditLogEntry[];
-  total: number;
-  hasMore: boolean;
-}
+export type AuditLogListResponse = PaginatedResponse<AuditLogEntry>;
 
 export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   LOGIN_SUCCESS: 'Inicio de sesión exitoso',
@@ -39,5 +36,8 @@ export const AUDIT_ACTION_LABELS: Record<AuditAction, string> = {
   ACCOUNT_UNLOCKED: 'Cuenta desbloqueada',
   ACCOUNT_BLOCKED: 'Cuenta bloqueada',
   ACCOUNT_UNBLOCKED: 'Cuenta desbloqueada',
+  ACCOUNT_DELETED: 'Cuenta eliminada',
+  ACCOUNT_REACTIVATED: 'Cuenta reactivada',
+  ACCOUNT_ANONYMIZED: 'Cuenta anonimizada',
   REGISTRATION: 'Registro de cuenta',
 };

@@ -12,6 +12,9 @@ const JWT_EXPIRES_IN = '7d';
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 15;
 
+// Soft delete grace period
+const GRACE_PERIOD_DAYS = 30;
+
 export interface LoginOptions {
   ipAddress?: string;
   userAgent?: string;
@@ -64,6 +67,32 @@ export class LoginService {
         success: false,
         error: 'El inicio de sesión ha sido deshabilitado para tu cuenta.'
       };
+    }
+
+    // Check if account is soft deleted
+    if (existingUser.deletedAt) {
+      const deletedAt = new Date(existingUser.deletedAt);
+      const daysSinceDeleted = Math.floor((Date.now() - deletedAt.getTime()) / (1000 * 60 * 60 * 24));
+      const daysRemaining = GRACE_PERIOD_DAYS - daysSinceDeleted;
+
+      if (daysRemaining > 0) {
+        // Within grace period - offer reactivation
+        return {
+          success: false,
+          accountDeleted: true,
+          daysRemaining,
+          email: existingUser.email!,
+          error: `Tu cuenta está programada para eliminarse en ${daysRemaining} día${daysRemaining === 1 ? '' : 's'}.`,
+        };
+      } else {
+        // Past grace period - treat as non-existent
+        await auditLogsService.log('LOGIN_FAILED', {
+          ipAddress,
+          userAgent,
+          metadata: { identifier: data.identifier, reason: 'account_deleted_expired' },
+        });
+        return { success: false, error: 'Credenciales inválidas' };
+      }
     }
 
     // Check if account is temporarily locked (due to failed attempts)

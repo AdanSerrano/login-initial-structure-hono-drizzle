@@ -31,6 +31,9 @@ export const auditActionEnum = mysqlEnum('audit_action', [
   'ACCOUNT_UNLOCKED',
   'ACCOUNT_BLOCKED',
   'ACCOUNT_UNBLOCKED',
+  'ACCOUNT_DELETED',
+  'ACCOUNT_REACTIVATED',
+  'ACCOUNT_ANONYMIZED',
   'REGISTRATION',
 ]);
 
@@ -64,6 +67,8 @@ export const usersTable = mysqlTable('users', {
   blockedReason: varchar('blocked_reason', { length: 500 }),
   blockedAt: datetime('blocked_at'),
   blockedActions: json('blocked_actions').$type<BlockedAction[]>(),
+  // Soft delete field
+  deletedAt: datetime('deleted_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().onUpdateNow().notNull(),
 });
@@ -200,4 +205,7 @@ export type AuditAction =
   | 'ACCOUNT_UNLOCKED'
   | 'ACCOUNT_BLOCKED'
   | 'ACCOUNT_UNBLOCKED'
+  | 'ACCOUNT_DELETED'
+  | 'ACCOUNT_REACTIVATED'
+  | 'ACCOUNT_ANONYMIZED'
   | 'REGISTRATION';

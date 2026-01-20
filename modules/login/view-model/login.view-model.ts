@@ -14,6 +14,14 @@ export function LoginViewModel() {
     isResendingVerification,
     resendVerificationEmail,
     cancelEmailVerification,
+    // Account deleted
+    accountDeleted,
+    deletedAccountEmail,
+    daysRemaining,
+    isReactivating,
+    reactivationError,
+    reactivateAccount,
+    cancelAccountReactivation,
   } = useLogin();
 
   const handleLogin = async (values: LoginInput) => {
@@ -32,5 +40,13 @@ export function LoginViewModel() {
     isResendingVerification,
     resendVerificationEmail,
     cancelEmailVerification,
+    // Account deleted
+    accountDeleted,
+    deletedAccountEmail,
+    daysRemaining,
+    isReactivating,
+    reactivationError,
+    reactivateAccount,
+    cancelAccountReactivation,
   };
 }

@@ -1,6 +1,10 @@
 import { UserRepository } from '../repository/user.repository';
 import type { UpdateUserInput } from '../validations/schema/user.schema';
 import type { UserResponse, TwoFactorMethod } from '../types/user.types';
+import { auditLogsService } from '@/modules/audit-logs/services/audit-logs.service';
+import bcrypt from 'bcryptjs';
+
+const GRACE_PERIOD_DAYS = 30;
 
 export class UserService {
   private repository: UserRepository;
@@ -73,15 +77,105 @@ export class UserService {
     };
   }
 
-  async deleteUser(userId: string): Promise<{ success: true; message: string } | { success: false; error: string }> {
+  async deleteUser(
+    userId: string,
+    options?: { ipAddress?: string; userAgent?: string }
+  ): Promise<{ success: true; message: string } | { success: false; error: string }> {
     const user = await this.repository.findById(userId);
 
     if (!user) {
       return { success: false, error: 'Usuario no encontrado' };
     }
 
-    await this.repository.delete(userId);
+    // Soft delete: mark deletion date
+    await this.repository.softDelete(userId);
 
-    return { success: true, message: 'Usuario eliminado correctamente' };
+    // Log in audit
+    const scheduledDeletionDate = new Date(Date.now() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+    await auditLogsService.log('ACCOUNT_DELETED', {
+      userId,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
+      metadata: { scheduledForDeletion: scheduledDeletionDate.toISOString() },
+    });
+
+    return {
+      success: true,
+      message: `Tu cuenta ha sido programada para eliminarse en ${GRACE_PERIOD_DAYS} días. Puedes reactivarla iniciando sesión.`,
+    };
+  }
+
+  async reactivateAccount(
+    email: string,
+    password: string,
+    options?: { ipAddress?: string; userAgent?: string }
+  ): Promise<{ success: true; message: string } | { success: false; error: string }> {
+    const user = await this.repository.findByEmail(email);
+
+    if (!user || !user.deletedAt) {
+      return { success: false, error: 'Cuenta no encontrada' };
+    }
+
+    // Verify grace period
+    const deletedAt = new Date(user.deletedAt);
+    const daysSinceDeleted = Math.floor((Date.now() - deletedAt.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysSinceDeleted >= GRACE_PERIOD_DAYS) {
+      return { success: false, error: 'El período de reactivación ha expirado' };
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password!);
+    if (!isPasswordValid) {
+      return { success: false, error: 'Contraseña incorrecta' };
+    }
+
+    // Reactivate account
+    await this.repository.reactivate(user.id);
+
+    // Log in audit
+    await auditLogsService.log('ACCOUNT_REACTIVATED', {
+      userId: user.id,
+      ipAddress: options?.ipAddress,
+      userAgent: options?.userAgent,
+    });
+
+    return { success: true, message: 'Tu cuenta ha sido reactivada exitosamente' };
+  }
+
+  async cleanupExpiredAccounts(): Promise<{
+    success: true;
+    anonymizedCount: number;
+    anonymizedUserIds: string[];
+  }> {
+    const expiredAccounts = await this.repository.findExpiredDeletedAccounts(GRACE_PERIOD_DAYS);
+
+    const anonymizedUserIds: string[] = [];
+
+    for (const account of expiredAccounts) {
+      // Skip if already anonymized (email ends with @anonymous.local)
+      if (account.email?.endsWith('@anonymous.local')) {
+        continue;
+      }
+
+      await this.repository.anonymize(account.id);
+
+      // Log in audit
+      await auditLogsService.log('ACCOUNT_ANONYMIZED', {
+        userId: account.id,
+        metadata: {
+          originalEmail: account.email,
+          deletedAt: account.deletedAt?.toISOString(),
+        },
+      });
+
+      anonymizedUserIds.push(account.id);
+    }
+
+    return {
+      success: true,
+      anonymizedCount: anonymizedUserIds.length,
+      anonymizedUserIds,
+    };
   }
 }

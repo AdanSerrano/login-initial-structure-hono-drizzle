@@ -12,7 +12,13 @@ userRoutes.get('/me', (c) => controller.getMe(c));
 // PUT /api/user/me - Update current user
 userRoutes.put('/me', zValidator('json', updateUserSchema), (c) => controller.updateMe(c));
 
-// DELETE /api/user/me - Delete current user
+// DELETE /api/user/me - Delete current user (soft delete)
 userRoutes.delete('/me', (c) => controller.deleteMe(c));
+
+// POST /api/user/reactivate - Reactivate a deleted account (no auth required)
+userRoutes.post('/reactivate', (c) => controller.reactivateAccount(c));
+
+// POST /api/user/cleanup - Cleanup expired accounts (cron job, requires CRON_SECRET)
+userRoutes.post('/cleanup', (c) => controller.cleanupExpiredAccounts(c));
 
 export { userRoutes };

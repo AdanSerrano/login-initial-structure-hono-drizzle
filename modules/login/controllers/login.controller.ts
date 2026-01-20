@@ -29,9 +29,20 @@ export class LoginController {
       if ('requiresEmailVerification' in result && result.requiresEmailVerification) {
         return c.json({
           requiresEmailVerification: true,
-          email: result.email
+          email: result.email,
         }, 403);
       }
+
+      // Check if account is deleted (within grace period)
+      if ('accountDeleted' in result && result.accountDeleted) {
+        return c.json({
+          accountDeleted: true,
+          daysRemaining: result.daysRemaining,
+          email: result.email,
+          error: result.error,
+        }, 403);
+      }
+
       // At this point, result must have error property
       if ('error' in result) {
         return c.json({ error: result.error }, 401);

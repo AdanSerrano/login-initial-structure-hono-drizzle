@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { loginApi } from '../api/login.api';
 import { emailVerificationApi } from '@/modules/email-verification/api/email-verification.api';
+import { userApi } from '@/modules/user/api/user.api';
 import { useUserStore } from '@/modules/user/state/user.state';
 import type { LoginInput } from '../validations/schema/login.schema';
 
@@ -17,6 +18,14 @@ export const useLogin = () => {
   const [requiresEmailVerification, setRequiresEmailVerification] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [isResendingVerification, setIsResendingVerification] = useState(false);
+
+  // Account deleted state
+  const [accountDeleted, setAccountDeleted] = useState(false);
+  const [deletedAccountEmail, setDeletedAccountEmail] = useState<string | null>(null);
+  const [daysRemaining, setDaysRemaining] = useState<number>(0);
+  const [isReactivating, setIsReactivating] = useState(false);
+  const [reactivationError, setReactivationError] = useState<string | null>(null);
+
   const { setUser } = useUserStore();
 
   const login = async (values: LoginInput) => {
@@ -24,10 +33,20 @@ export const useLogin = () => {
     setRequiresTwoFactor(false);
     setRequiresEmailVerification(false);
     setUnverifiedEmail(null);
+    setAccountDeleted(false);
+    setDeletedAccountEmail(null);
 
     startTransition(async () => {
       try {
         const data = await loginApi.login(values);
+
+        // Check if account is deleted
+        if ('accountDeleted' in data && data.accountDeleted) {
+          setAccountDeleted(true);
+          setDeletedAccountEmail(data.email);
+          setDaysRemaining(data.daysRemaining);
+          return;
+        }
 
         // Check if email verification is required
         if ('requiresEmailVerification' in data && data.requiresEmailVerification) {
@@ -56,6 +75,33 @@ export const useLogin = () => {
         toast.error(message);
       }
     });
+  };
+
+  const reactivateAccount = async (password: string) => {
+    if (!deletedAccountEmail) return;
+
+    setIsReactivating(true);
+    setReactivationError(null);
+
+    try {
+      const message = await userApi.reactivateAccount(deletedAccountEmail, password);
+      toast.success(message);
+      setAccountDeleted(false);
+      setDeletedAccountEmail(null);
+      setDaysRemaining(0);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al reactivar la cuenta';
+      setReactivationError(message);
+    } finally {
+      setIsReactivating(false);
+    }
+  };
+
+  const cancelAccountReactivation = () => {
+    setAccountDeleted(false);
+    setDeletedAccountEmail(null);
+    setDaysRemaining(0);
+    setReactivationError(null);
   };
 
   const resendVerificationEmail = async () => {
@@ -95,5 +141,13 @@ export const useLogin = () => {
     cancelTwoFactor,
     resendVerificationEmail,
     cancelEmailVerification,
+    // Account deleted
+    accountDeleted,
+    deletedAccountEmail,
+    daysRemaining,
+    isReactivating,
+    reactivationError,
+    reactivateAccount,
+    cancelAccountReactivation,
   };
 };

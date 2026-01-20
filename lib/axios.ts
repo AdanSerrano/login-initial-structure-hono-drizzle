@@ -12,10 +12,17 @@ export const apiClient = axios.create({
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Preservar el error original para casos especiales (como verificación de email)
-    // que necesitan acceso al response completo
-    if (error.response?.status === 403 && error.response?.data?.requiresEmailVerification) {
-      return Promise.reject(error);
+    // Preservar el error original para casos especiales que necesitan acceso al response completo
+    if (error.response?.status === 403) {
+      const data = error.response?.data;
+      // Email verification required
+      if (data?.requiresEmailVerification) {
+        return Promise.reject(error);
+      }
+      // Account deleted (within grace period)
+      if (data?.accountDeleted) {
+        return Promise.reject(error);
+      }
     }
 
     // Extraer mensaje de error del servidor si existe

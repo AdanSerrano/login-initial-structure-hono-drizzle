@@ -66,12 +66,55 @@ export class UserController {
       return c.json({ error: 'No autenticado' }, 401);
     }
 
-    const result = await this.service.deleteUser(userId);
+    const ipAddress = c.req.header('x-forwarded-for') || 'unknown';
+    const userAgent = c.req.header('user-agent') || 'unknown';
+
+    const result = await this.service.deleteUser(userId, { ipAddress, userAgent });
 
     if (!result.success) {
       return c.json({ error: result.error }, 400);
     }
 
     return c.json({ message: result.message });
+  }
+
+  async reactivateAccount(c: Context) {
+    const body = await c.req.json<{ email: string; password: string }>();
+    const ipAddress = c.req.header('x-forwarded-for') || 'unknown';
+    const userAgent = c.req.header('user-agent') || 'unknown';
+
+    if (!body.email || !body.password) {
+      return c.json({ error: 'Email y contraseña son requeridos' }, 400);
+    }
+
+    const result = await this.service.reactivateAccount(body.email, body.password, { ipAddress, userAgent });
+
+    if (!result.success) {
+      return c.json({ error: result.error }, 400);
+    }
+
+    return c.json({ message: result.message });
+  }
+
+  async cleanupExpiredAccounts(c: Context) {
+    // Verify admin secret for cron job security
+    const authHeader = c.req.header('authorization');
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      return c.json({ error: 'CRON_SECRET no configurado' }, 500);
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return c.json({ error: 'No autorizado' }, 401);
+    }
+
+    const result = await this.service.cleanupExpiredAccounts();
+
+    return c.json({
+      message: `${result.anonymizedCount} cuentas anonimizadas`,
+      anonymizedCount: result.anonymizedCount,
+      anonymizedUserIds: result.anonymizedUserIds,
+    });
   }
 }

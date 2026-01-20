@@ -12,7 +12,7 @@ import { EditProfileForm } from '../components/edit-profile-form.component';
 import { DangerZone } from '../components/danger-zone.component';
 
 export function ProfileView() {
-  const { user, isLoading, isPending, updateUser, deleteAccount } = useUser();
+  const { user, isLoading, isPending, updateUser } = useUser();
   const { logout, isPending: isLoggingOut } = useLogout();
   const [isEditing, setIsEditing] = useState(false);
 
@@ -67,7 +67,7 @@ export function ProfileView() {
 
         <Separator />
 
-        <DangerZone onDeleteAccount={deleteAccount} />
+        <DangerZone />
       </div>
     </div>
   );

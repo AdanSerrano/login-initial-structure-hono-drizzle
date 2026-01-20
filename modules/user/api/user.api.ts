@@ -24,10 +24,22 @@ export const userApi = {
     throw new Error(response.data.error || 'Error al actualizar usuario');
   },
 
-  deleteMe: async (): Promise<void> => {
+  deleteMe: async (): Promise<string> => {
     const response = await apiClient.delete<ApiResponse<never>>('/user/me');
     if (response.data.error) {
       throw new Error(response.data.error);
     }
+    return response.data.message || 'Cuenta eliminada';
+  },
+
+  reactivateAccount: async (email: string, password: string): Promise<string> => {
+    const response = await apiClient.post<ApiResponse<never>>('/user/reactivate', {
+      email,
+      password,
+    });
+    if (response.data.error) {
+      throw new Error(response.data.error);
+    }
+    return response.data.message || 'Cuenta reactivada';
   },
 };

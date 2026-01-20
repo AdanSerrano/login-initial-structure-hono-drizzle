@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { LoginViewModel } from '../view-model/login.view-model';
 import { LoginForm } from '../components/form/login.form';
 import { TwoFactorLoginView } from '@/modules/two-factor/view/two-factor-login.view';
+import { ReactivateAccountDialog } from '../components/reactivate-account-dialog.component';
 import { Button } from '@/components/ui/button';
 
 export function LoginView() {
@@ -19,6 +20,14 @@ export function LoginView() {
     isResendingVerification,
     resendVerificationEmail,
     cancelEmailVerification,
+    // Account deleted
+    accountDeleted,
+    deletedAccountEmail,
+    daysRemaining,
+    isReactivating,
+    reactivationError,
+    reactivateAccount,
+    cancelAccountReactivation,
   } = LoginViewModel();
 
   return (
@@ -113,6 +122,19 @@ export function LoginView() {
           )}
         </div>
       </div>
+
+      {/* Reactivate Account Dialog */}
+      <ReactivateAccountDialog
+        open={accountDeleted}
+        onOpenChange={(open) => {
+          if (!open) cancelAccountReactivation();
+        }}
+        email={deletedAccountEmail || ''}
+        daysRemaining={daysRemaining}
+        onReactivate={reactivateAccount}
+        isPending={isReactivating}
+        error={reactivationError}
+      />
     </div>
   );
 }

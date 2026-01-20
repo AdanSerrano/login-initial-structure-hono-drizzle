@@ -1,47 +1,55 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { auditLogsApi } from '../api/audit-logs.api';
-import type { AuditLogEntry, AuditLogListResponse } from '../types/audit-logs.types';
+import type { AuditLogEntry } from '../types/audit-logs.types';
+import type { PaginationInfo } from '@/types/pagination.types';
 
 export function useActivityLog(initialLimit = 10) {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const currentPageRef = useRef(1);
 
-  const fetchLogs = useCallback(async (limit = initialLimit, offset = 0, append = false) => {
+  const fetchLogs = useCallback(async (page = 1, append = false) => {
     try {
-      setIsLoading(true);
+      if (append) {
+        setIsLoadingMore(true);
+      } else {
+        setIsLoading(true);
+      }
       setError(null);
 
-      const response: AuditLogListResponse = await auditLogsApi.getMyActivity(limit, offset);
+      const response = await auditLogsApi.getMyActivity(page, initialLimit);
 
       if (append) {
-        setLogs((prev) => [...prev, ...response.logs]);
+        setLogs((prev) => [...prev, ...response.data]);
       } else {
-        setLogs(response.logs);
+        setLogs(response.data);
       }
 
-      setTotal(response.total);
-      setHasMore(response.hasMore);
+      setPagination(response.pagination);
+      currentPageRef.current = response.pagination.page;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Error al cargar la actividad';
       setError(message);
     } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, [initialLimit]);
 
   const loadMore = useCallback(async () => {
-    if (!hasMore || isLoading) return;
-    await fetchLogs(initialLimit, logs.length, true);
-  }, [fetchLogs, hasMore, isLoading, logs.length, initialLimit]);
+    if (!pagination?.hasNextPage || isLoadingMore) return;
+    await fetchLogs(currentPageRef.current + 1, true);
+  }, [fetchLogs, pagination?.hasNextPage, isLoadingMore]);
 
   const refresh = useCallback(async () => {
-    await fetchLogs(initialLimit, 0, false);
-  }, [fetchLogs, initialLimit]);
+    currentPageRef.current = 1;
+    await fetchLogs(1, false);
+  }, [fetchLogs]);
 
   useEffect(() => {
     fetchLogs();
@@ -49,9 +57,10 @@ export function useActivityLog(initialLimit = 10) {
 
   return {
     logs,
-    total,
-    hasMore,
+    pagination,
+    hasMore: pagination?.hasNextPage ?? false,
     isLoading,
+    isLoadingMore,
     error,
     loadMore,
     refresh,

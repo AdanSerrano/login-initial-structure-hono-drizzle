@@ -15,6 +15,20 @@
       "when": 1768860694192,
       "tag": "0001_flaky_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1768867019171,
+      "tag": "0002_breezy_mad_thinker",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1768868207764,
+      "tag": "0003_lively_ego",
+      "breakpoints": true
     }
   ]
 }

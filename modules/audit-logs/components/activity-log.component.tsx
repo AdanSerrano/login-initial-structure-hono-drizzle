@@ -1,11 +1,14 @@
 'use client';
 
+import { useEffect, useRef, useCallback } from 'react';
 import { useActivityLog } from '../hooks/audit-logs.hook';
 import { AUDIT_ACTION_LABELS } from '../types/audit-logs.types';
 import type { AuditAction } from '@/db/schema';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2 } from 'lucide-react';
 
 const ACTION_ICONS: Record<AuditAction, string> = {
   LOGIN_SUCCESS: '✓',
@@ -22,6 +25,9 @@ const ACTION_ICONS: Record<AuditAction, string> = {
   ACCOUNT_UNLOCKED: '🔓',
   ACCOUNT_BLOCKED: '⛔',
   ACCOUNT_UNBLOCKED: '✓',
+  ACCOUNT_DELETED: '🗑',
+  ACCOUNT_REACTIVATED: '♻',
+  ACCOUNT_ANONYMIZED: '👻',
   REGISTRATION: '👤',
 };
 
@@ -40,6 +46,9 @@ const ACTION_COLORS: Record<AuditAction, 'default' | 'secondary' | 'destructive'
   ACCOUNT_UNLOCKED: 'default',
   ACCOUNT_BLOCKED: 'destructive',
   ACCOUNT_UNBLOCKED: 'default',
+  ACCOUNT_DELETED: 'destructive',
+  ACCOUNT_REACTIVATED: 'default',
+  ACCOUNT_ANONYMIZED: 'secondary',
   REGISTRATION: 'default',
 };
 
@@ -57,7 +66,6 @@ function formatDate(date: Date | string): string {
 function parseUserAgent(userAgent: string): string {
   if (!userAgent || userAgent === 'unknown') return 'Desconocido';
 
-  // Simple parsing for common browsers
   if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) {
     return 'Chrome';
   }
@@ -78,7 +86,32 @@ function parseUserAgent(userAgent: string): string {
 }
 
 export function ActivityLogComponent() {
-  const { logs, hasMore, isLoading, error, loadMore, refresh } = useActivityLog(10);
+  const { logs, hasMore, isLoading, isLoadingMore, error, loadMore, refresh } = useActivityLog(10);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const handleIntersection = useCallback(
+    (entries: IntersectionObserverEntry[]) => {
+      const [entry] = entries;
+      if (entry.isIntersecting && hasMore && !isLoadingMore) {
+        loadMore();
+      }
+    },
+    [hasMore, isLoadingMore, loadMore]
+  );
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(handleIntersection, {
+      root: null,
+      rootMargin: '100px',
+      threshold: 0.1,
+    });
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [handleIntersection]);
 
   if (error) {
     return (
@@ -106,13 +139,13 @@ export function ActivityLogComponent() {
             <CardDescription>Historial de eventos de seguridad</CardDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={refresh} disabled={isLoading}>
-            {isLoading ? 'Cargando...' : 'Actualizar'}
+            {isLoading && logs.length > 0 ? 'Cargando...' : 'Actualizar'}
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         {isLoading && logs.length === 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 p-6">
             {[...Array(3)].map((_, i) => (
               <div key={i} className="animate-pulse flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                 <div className="w-8 h-8 rounded-full bg-muted" />
@@ -124,50 +157,52 @@ export function ActivityLogComponent() {
             ))}
           </div>
         ) : logs.length === 0 ? (
-          <p className="text-muted-foreground text-sm text-center py-4">
+          <p className="text-muted-foreground text-sm text-center py-8 px-6">
             No hay actividad registrada
           </p>
         ) : (
-          <div className="space-y-2">
-            {logs.map((log) => (
-              <div
-                key={log.id}
-                className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm">
-                  {ACTION_ICONS[log.action]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant={ACTION_COLORS[log.action]} className="text-xs">
-                      {AUDIT_ACTION_LABELS[log.action]}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                    <span>{formatDate(log.createdAt)}</span>
-                    <span>•</span>
-                    <span>{log.ipAddress || 'IP desconocida'}</span>
-                    <span>•</span>
-                    <span>{parseUserAgent(log.userAgent || '')}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {hasMore && (
-              <div className="pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={loadMore}
-                  disabled={isLoading}
-                  className="w-full"
+          <ScrollArea className="h-[400px]">
+            <div className="space-y-1 p-4">
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  {isLoading ? 'Cargando...' : 'Cargar más'}
-                </Button>
-              </div>
-            )}
-          </div>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm shrink-0">
+                    {ACTION_ICONS[log.action]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant={ACTION_COLORS[log.action]} className="text-xs">
+                        {AUDIT_ACTION_LABELS[log.action]}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
+                      <span>{formatDate(log.createdAt)}</span>
+                      <span>•</span>
+                      <span>{log.ipAddress || 'IP desconocida'}</span>
+                      <span>•</span>
+                      <span>{parseUserAgent(log.userAgent || '')}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {hasMore && (
+                <div ref={loadMoreRef} className="flex justify-center py-4">
+                  {isLoadingMore && (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  )}
+                </div>
+              )}
+
+              {!hasMore && logs.length > 0 && (
+                <p className="text-center text-xs text-muted-foreground py-4">
+                  No hay más actividad
+                </p>
+              )}
+            </div>
+          </ScrollArea>
         )}
       </CardContent>
     </Card>
