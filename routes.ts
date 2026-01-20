@@ -2,7 +2,7 @@
  * Rutas públicas accesibles sin autenticación
  * Estas rutas no requieren login
  */
-export const publicRoutes = ["/"];
+export const publicRoutes = ["/", "/terms", "/privacy"];
 
 /**
  * Rutas de autenticación

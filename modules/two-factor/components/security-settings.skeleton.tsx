@@ -6,14 +6,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function SecuritySettingsSkeleton() {
   return (
     <div className="container max-w-2xl mx-auto px-4 py-8">
-      <div className="mb-8">
+      <div className="mb-8 animate-fade-in">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-4 w-48 mt-2" />
       </div>
 
       <div className="space-y-6">
         {/* 2FA Card Skeleton */}
-        <Card>
+        <Card className="animate-fade-in stagger-1 shadow-lg">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="space-y-2">
@@ -35,7 +35,7 @@ export function SecuritySettingsSkeleton() {
         </Card>
 
         {/* Session Info Card Skeleton */}
-        <Card>
+        <Card className="animate-fade-in stagger-2 shadow-lg">
           <CardHeader>
             <Skeleton className="h-5 w-40" />
             <Skeleton className="h-4 w-48 mt-2" />
