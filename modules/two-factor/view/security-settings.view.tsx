@@ -53,7 +53,7 @@ export function SecuritySettingsView() {
 
       {/* Security Overview Card */}
       <Card className="overflow-hidden">
-        <div className="h-2 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+        <div className="h-2 bg-gradient-to-r from-violet-600 to-purple-600"></div>
         <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-6 md:items-center">
             {/* Security Score */}
@@ -175,8 +175,8 @@ export function SecuritySettingsView() {
         <Link href="/settings/profile">
           <CardContent className="flex items-center justify-between py-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <User className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-violet-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <User className="w-6 h-6 text-violet-600" />
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900">Mi Perfil</h3>

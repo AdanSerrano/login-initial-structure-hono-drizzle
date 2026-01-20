@@ -46,7 +46,7 @@ export function ProfileView() {
           </CardHeader>
           <CardContent>
             <Link href="/login">
-              <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+              <Button className="w-full bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700">
                 Iniciar sesión
               </Button>
             </Link>
@@ -80,7 +80,7 @@ export function ProfileView() {
 
       {/* Profile Card */}
       <Card className="overflow-hidden">
-        <div className="h-24 bg-gradient-to-r from-blue-600 to-purple-600"></div>
+        <div className="h-24 bg-gradient-to-r from-violet-600 to-purple-600"></div>
         <CardContent className="relative pt-0">
           <div className="flex flex-col sm:flex-row gap-4 sm:items-end -mt-12">
             {/* Avatar */}
@@ -88,8 +88,8 @@ export function ProfileView() {
               {user.image ? (
                 <img src={user.image} alt={user.name || ''} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                  <User className="w-10 h-10 text-blue-600" />
+                <div className="w-full h-full bg-gradient-to-br from-violet-100 to-purple-100 flex items-center justify-center">
+                  <User className="w-10 h-10 text-violet-600" />
                 </div>
               )}
             </div>
