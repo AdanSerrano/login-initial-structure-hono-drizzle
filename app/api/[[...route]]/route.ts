@@ -11,6 +11,7 @@ import { auditLogsRoutes } from '@/modules/audit-logs/routes/audit-logs.routes'
 import { sessionsRoutes } from '@/modules/sessions/routes/sessions.routes'
 import { emailChangeRoutes } from '@/modules/email-change/routes/email-change.routes'
 import { magicLinkRoutes } from '@/modules/magic-link/routes/magic-link.routes'
+import { adminUsersRoutes } from '@/modules/admin/users/routes/admin-users.routes'
 import { rateLimiters } from '@/lib/rate-limit'
 
 const app = new Hono().basePath('/api')
@@ -43,6 +44,7 @@ app.route('/audit-logs', auditLogsRoutes)
 app.route('/sessions', sessionsRoutes)
 app.route('/email-change', emailChangeRoutes)
 app.route('/magic-link', magicLinkRoutes)
+app.route('/admin/users', adminUsersRoutes)
 
 export const GET = handle(app)
 export const POST = handle(app)
