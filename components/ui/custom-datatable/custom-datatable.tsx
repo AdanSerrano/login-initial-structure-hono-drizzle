@@ -11,6 +11,8 @@ import {
 } from "react";
 import { toast } from "sonner";
 
+import { Loader2 } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Table } from "@/components/ui/table";
 
@@ -570,6 +572,15 @@ function CustomDataTableInner<TData>(
         style={containerStyle}
         tabIndex={0}
       >
+        {/* Loading overlay */}
+        {isPending && !isLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
+            <div className="flex items-center gap-2 rounded-md bg-background px-4 py-2 shadow-lg border">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Cargando...</span>
+            </div>
+          </div>
+        )}
         <Table>
           <CustomTableHeader {...headerProps} />
           <CustomTableBody {...bodyProps} />
