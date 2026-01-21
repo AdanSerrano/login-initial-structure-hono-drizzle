@@ -68,6 +68,250 @@ const densityLabels: Record<DensityType, string> = {
   comfortable: "Amplia",
 };
 
+const DENSITY_OPTIONS: DensityType[] = ["compact", "default", "comfortable"];
+
+// Memoized tooltip button component
+const TooltipButton = memo(function TooltipButton({
+  onClick,
+  disabled,
+  icon: Icon,
+  tooltip,
+  iconClassName,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  icon: React.ElementType;
+  tooltip: string;
+  iconClassName?: string;
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onClick}
+            disabled={disabled}
+            className="h-9 w-9"
+          >
+            <Icon className={cn("h-4 w-4", iconClassName)} />
+            <span className="sr-only">{tooltip}</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{tooltip}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+});
+
+// Memoized search input
+const SearchInput = memo(function SearchInput({
+  inputRef,
+  value,
+  placeholder,
+  onChange,
+  onClear,
+  showClearButton,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  value: string;
+  placeholder: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear: () => void;
+  showClearButton: boolean;
+}) {
+  return (
+    <div className="relative w-full sm:max-w-xs">
+      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        ref={inputRef}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        className="pl-9 pr-9"
+      />
+      {value && showClearButton && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2"
+          onClick={onClear}
+        >
+          <X className="h-3 w-3" />
+          <span className="sr-only">Limpiar búsqueda</span>
+        </Button>
+      )}
+    </div>
+  );
+});
+
+// Memoized density dropdown
+const DensityDropdown = memo(function DensityDropdown({
+  currentDensity,
+  onDensityChange,
+}: {
+  currentDensity: DensityType;
+  onDensityChange: (density: DensityType) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9">
+                <SlidersHorizontal className="h-4 w-4" />
+                <span className="sr-only">Densidad</span>
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Densidad de filas</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuLabel>Densidad</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {DENSITY_OPTIONS.map((d) => {
+          const Icon = densityIcons[d];
+          return (
+            <DropdownMenuItem
+              key={d}
+              onClick={() => onDensityChange(d)}
+              className={cn("gap-2", currentDensity === d && "bg-accent")}
+            >
+              <Icon className="h-4 w-4" />
+              {densityLabels[d]}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+});
+
+// Column info for visibility dropdown - no generics needed
+interface ColumnInfo {
+  id: string;
+  header: string | React.ReactNode;
+}
+
+// Memoized column visibility dropdown - uses simplified ColumnInfo instead of generic
+const ColumnVisibilityDropdown = memo(function ColumnVisibilityDropdown({
+  columns,
+  columnVisibility,
+  onColumnVisibilityChange,
+}: {
+  columns: ColumnInfo[];
+  columnVisibility: ColumnVisibilityConfig;
+  onColumnVisibilityChange: (columnId: string, visible: boolean) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <Columns3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Columnas</span>
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Mostrar/ocultar columnas</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <DropdownMenuContent align="end" className="w-48 max-h-[300px] overflow-auto">
+        <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {columns.map((column) => {
+          const isVisible = columnVisibility.columnVisibility[column.id] !== false;
+          const isAlwaysVisible = columnVisibility.alwaysVisibleColumns?.includes(column.id);
+
+          return (
+            <DropdownMenuCheckboxItem
+              key={column.id}
+              className="capitalize"
+              checked={isVisible}
+              disabled={isAlwaysVisible}
+              onCheckedChange={(checked) => onColumnVisibilityChange(column.id, checked)}
+            >
+              {column.header}
+            </DropdownMenuCheckboxItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+});
+
+// Memoized export dropdown
+const ExportDropdown = memo(function ExportDropdown({
+  formats,
+  onExport,
+}: {
+  formats: ExportFormat[];
+  onExport: (format: ExportFormat) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">Exportar</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuLabel>Formato de exportación</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {formats.map((format) => {
+          const Icon = exportIcons[format];
+          return (
+            <DropdownMenuItem
+              key={format}
+              onClick={() => onExport(format)}
+              className="gap-2"
+            >
+              <Icon className="h-4 w-4" />
+              <span className="uppercase">{format}</span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+});
+
+// Memoized bulk actions bar
+const BulkActionsBar = memo(function BulkActionsBar({
+  selectedCount,
+  bulkActions,
+  onClearSelection,
+}: {
+  selectedCount: number;
+  bulkActions: React.ReactNode;
+  onClearSelection: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border bg-muted/50 px-4 py-2">
+      <Badge variant="secondary" className="font-mono">
+        {selectedCount} seleccionado{selectedCount > 1 ? "s" : ""}
+      </Badge>
+      <div className="h-4 w-px bg-border" />
+      <div className="flex items-center gap-2">{bulkActions}</div>
+      <div className="flex-1" />
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onClearSelection}
+        className="text-muted-foreground"
+      >
+        Limpiar selección
+      </Button>
+    </div>
+  );
+});
+
 interface TableToolbarProps<TData> {
   // Filter
   filter?: FilterConfig;
@@ -124,7 +368,6 @@ function TableToolbarInner<TData>({
   columnVisibility,
   columns = [],
   selectedCount = 0,
-  totalRows = 0,
   bulkActions,
   onClearSelection,
   headerActions,
@@ -143,80 +386,119 @@ function TableToolbarInner<TData>({
   className,
 }: TableToolbarProps<TData>) {
   const [localFilter, setLocalFilter] = useState(filter?.globalFilter ?? "");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Refs for stable callbacks
+  const filterRef = useRef(filter);
+  const onExportRef = useRef(onExport);
+  const exportConfigRef = useRef(exportConfig);
+  const columnVisibilityRef = useRef(columnVisibility);
+
+  // Update refs on every render
+  filterRef.current = filter;
+  onExportRef.current = onExport;
+  exportConfigRef.current = exportConfig;
+  columnVisibilityRef.current = columnVisibility;
 
   // Sync with external filter value
   useEffect(() => {
     setLocalFilter(filter?.globalFilter ?? "");
   }, [filter?.globalFilter]);
 
-  // Debounced filter change
-  const handleFilterChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const value = e.target.value;
-      setLocalFilter(value);
+  // Debounced filter change - stable callback using refs
+  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalFilter(value);
 
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
 
-      const debounceMs = filter?.debounceMs ?? 300;
-      debounceRef.current = setTimeout(() => {
-        filter?.onGlobalFilterChange?.(value);
-      }, debounceMs);
-    },
-    [filter]
-  );
+    const debounceMs = filterRef.current?.debounceMs ?? 300;
+    debounceRef.current = setTimeout(() => {
+      filterRef.current?.onGlobalFilterChange?.(value);
+    }, debounceMs);
+  }, []);
 
+  // Clear filter - stable callback using refs
   const handleClearFilter = useCallback(() => {
     setLocalFilter("");
-    filter?.onGlobalFilterChange?.("");
+    filterRef.current?.onGlobalFilterChange?.("");
     inputRef.current?.focus();
-  }, [filter]);
+  }, []);
 
-  const handleExport = useCallback(
-    (format: ExportFormat) => {
-      onExport?.(format);
-      exportConfig?.onExport?.(format, []);
-    },
-    [onExport, exportConfig]
-  );
+  // Export handler - stable callback using refs
+  const handleExport = useCallback((format: ExportFormat) => {
+    onExportRef.current?.(format);
+    exportConfigRef.current?.onExport?.(format, []);
+  }, []);
 
-  const handleColumnVisibilityChange = useCallback(
-    (columnId: string, visible: boolean) => {
-      if (!columnVisibility) return;
-      const newVisibility = {
-        ...columnVisibility.columnVisibility,
-        [columnId]: visible,
-      };
-      columnVisibility.onColumnVisibilityChange(newVisibility);
-    },
-    [columnVisibility]
-  );
+  // Column visibility change - stable callback using refs
+  const handleColumnVisibilityChange = useCallback((columnId: string, visible: boolean) => {
+    const cv = columnVisibilityRef.current;
+    if (!cv) return;
+    const newVisibility = {
+      ...cv.columnVisibility,
+      [columnId]: visible,
+    };
+    cv.onColumnVisibilityChange(newVisibility);
+  }, []);
 
-  const handleDensityChange = useCallback(
-    (newDensity: DensityType) => {
-      onDensityChange?.(newDensity);
-    },
-    [onDensityChange]
-  );
+  // Density change handler - identity function wrapper removed
+  const handleDensityChange = useCallback((newDensity: DensityType) => {
+    onDensityChange?.(newDensity);
+  }, [onDensityChange]);
 
-  // Filter hideable columns
-  const hideableColumns = useMemo(
-    () => columns.filter((col) => col.enableHiding !== false),
+  // Filter hideable columns and map to ColumnInfo - memoized
+  const hideableColumnsInfo = useMemo(
+    () =>
+      columns
+        .filter((col) => col.enableHiding !== false)
+        .map((col) => ({
+          id: col.id,
+          header: typeof col.header === "string" ? col.header : col.id,
+        })),
     [columns]
   );
 
+  // Memoize computed booleans
   const hasSelection = selectedCount > 0;
-  const showSearch = toolbarConfig?.showSearch ?? true;
-  const showExport = toolbarConfig?.showExport ?? exportConfig?.enabled ?? false;
-  const showColumnVisibility = toolbarConfig?.showColumnVisibility ?? columnVisibility?.enabled ?? false;
-  const showDensityToggle = toolbarConfig?.showDensityToggle ?? false;
-  const showRefresh = toolbarConfig?.showRefresh ?? false;
-  const showCopy = toolbarConfig?.showCopy ?? isCopyEnabled;
-  const showPrint = toolbarConfig?.showPrint ?? isPrintEnabled;
-  const showFullscreen = toolbarConfig?.showFullscreen ?? isFullscreenEnabled;
+
+  const showFlags = useMemo(() => ({
+    search: toolbarConfig?.showSearch ?? true,
+    export: toolbarConfig?.showExport ?? exportConfig?.enabled ?? false,
+    columnVisibility: toolbarConfig?.showColumnVisibility ?? columnVisibility?.enabled ?? false,
+    densityToggle: toolbarConfig?.showDensityToggle ?? false,
+    refresh: toolbarConfig?.showRefresh ?? false,
+    copy: toolbarConfig?.showCopy ?? isCopyEnabled,
+    print: toolbarConfig?.showPrint ?? isPrintEnabled,
+    fullscreen: toolbarConfig?.showFullscreen ?? isFullscreenEnabled,
+  }), [
+    toolbarConfig?.showSearch,
+    toolbarConfig?.showExport,
+    toolbarConfig?.showColumnVisibility,
+    toolbarConfig?.showDensityToggle,
+    toolbarConfig?.showRefresh,
+    toolbarConfig?.showCopy,
+    toolbarConfig?.showPrint,
+    toolbarConfig?.showFullscreen,
+    exportConfig?.enabled,
+    columnVisibility?.enabled,
+    isCopyEnabled,
+    isPrintEnabled,
+    isFullscreenEnabled,
+  ]);
+
+  // Memoize export formats
+  const exportFormats = useMemo(
+    () => exportConfig?.formats ?? ["csv", "json", "xlsx"] as ExportFormat[],
+    [exportConfig?.formats]
+  );
+
+  // Memoize search input props
+  const searchPlaceholder = filter?.placeholder ?? "Buscar...";
+  const showClearButton = filter?.showClearButton ?? true;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -227,36 +509,29 @@ function TableToolbarInner<TData>({
     };
   }, []);
 
+  // Memoize container class
+  const containerClass = useMemo(
+    () => cn("flex flex-col gap-4 py-4", className),
+    [className]
+  );
+
   return (
-    <div className={cn("flex flex-col gap-4 py-4", className)}>
+    <div className={containerClass}>
       {/* Main toolbar row */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Left side: Search and custom start */}
         <div className="flex flex-1 items-center gap-2">
           {toolbarConfig?.customStart}
 
-          {filter && showSearch && (
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                ref={inputRef}
-                placeholder={filter.placeholder ?? "Buscar..."}
-                value={localFilter}
-                onChange={handleFilterChange}
-                className="pl-9 pr-9"
-              />
-              {localFilter && (filter.showClearButton ?? true) && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 h-6 w-6 -translate-y-1/2"
-                  onClick={handleClearFilter}
-                >
-                  <X className="h-3 w-3" />
-                  <span className="sr-only">Limpiar búsqueda</span>
-                </Button>
-              )}
-            </div>
+          {filter && showFlags.search && (
+            <SearchInput
+              inputRef={inputRef}
+              value={localFilter}
+              placeholder={searchPlaceholder}
+              onChange={handleFilterChange}
+              onClear={handleClearFilter}
+              showClearButton={showClearButton}
+            />
           )}
         </div>
 
@@ -265,198 +540,66 @@ function TableToolbarInner<TData>({
           {headerActions}
 
           {/* Fullscreen toggle */}
-          {showFullscreen && onToggleFullscreen && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onToggleFullscreen}
-                    className="h-9 w-9"
-                  >
-                    {isFullscreen ? (
-                      <Minimize className="h-4 w-4" />
-                    ) : (
-                      <Maximize className="h-4 w-4" />
-                    )}
-                    <span className="sr-only">
-                      {isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {showFlags.fullscreen && onToggleFullscreen && (
+            <TooltipButton
+              onClick={onToggleFullscreen}
+              icon={isFullscreen ? Minimize : Maximize}
+              tooltip={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            />
           )}
 
           {/* Copy button */}
-          {showCopy && onCopy && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onCopy}
-                    className="h-9 w-9"
-                  >
-                    <Copy className="h-4 w-4" />
-                    <span className="sr-only">Copiar datos</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Copiar datos al portapapeles</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {showFlags.copy && onCopy && (
+            <TooltipButton
+              onClick={onCopy}
+              icon={Copy}
+              tooltip="Copiar datos al portapapeles"
+            />
           )}
 
           {/* Print button */}
-          {showPrint && onPrint && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onPrint}
-                    className="h-9 w-9"
-                  >
-                    <Printer className="h-4 w-4" />
-                    <span className="sr-only">Imprimir</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Imprimir tabla</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {showFlags.print && onPrint && (
+            <TooltipButton
+              onClick={onPrint}
+              icon={Printer}
+              tooltip="Imprimir tabla"
+            />
           )}
 
           {/* Refresh button */}
-          {showRefresh && onRefresh && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onRefresh}
-                    disabled={isRefreshing}
-                    className="h-9 w-9"
-                  >
-                    <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-                    <span className="sr-only">Actualizar</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Actualizar datos</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+          {showFlags.refresh && onRefresh && (
+            <TooltipButton
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              icon={RefreshCw}
+              tooltip="Actualizar datos"
+              iconClassName={isRefreshing ? "animate-spin" : undefined}
+            />
           )}
 
           {/* Density toggle */}
-          {showDensityToggle && onDensityChange && (
-            <DropdownMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon" className="h-9 w-9">
-                        <SlidersHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Densidad</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Densidad de filas</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuLabel>Densidad</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {(["compact", "default", "comfortable"] as DensityType[]).map((d) => {
-                  const Icon = densityIcons[d];
-                  return (
-                    <DropdownMenuItem
-                      key={d}
-                      onClick={() => handleDensityChange(d)}
-                      className={cn("gap-2", density === d && "bg-accent")}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {densityLabels[d]}
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {showFlags.densityToggle && onDensityChange && (
+            <DensityDropdown
+              currentDensity={density}
+              onDensityChange={handleDensityChange}
+            />
           )}
 
           {/* Column visibility */}
-          {showColumnVisibility && hideableColumns.length > 0 && (
-            <DropdownMenu>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Columns3 className="h-4 w-4" />
-                        <span className="hidden sm:inline">Columnas</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>Mostrar/ocultar columnas</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <DropdownMenuContent align="end" className="w-48 max-h-[300px] overflow-auto">
-                <DropdownMenuLabel>Columnas visibles</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {hideableColumns.map((column) => {
-                  const isVisible = columnVisibility?.columnVisibility[column.id] !== false;
-                  const isAlwaysVisible = columnVisibility?.alwaysVisibleColumns?.includes(column.id);
-
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={isVisible}
-                      disabled={isAlwaysVisible}
-                      onCheckedChange={(checked) =>
-                        handleColumnVisibilityChange(column.id, checked)
-                      }
-                    >
-                      {typeof column.header === "string" ? column.header : column.id}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {showFlags.columnVisibility && hideableColumnsInfo.length > 0 && columnVisibility && (
+            <ColumnVisibilityDropdown
+              columns={hideableColumnsInfo}
+              columnVisibility={columnVisibility}
+              onColumnVisibilityChange={handleColumnVisibilityChange}
+            />
           )}
 
           {/* Export */}
-          {showExport && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Download className="h-4 w-4" />
-                  <span className="hidden sm:inline">Exportar</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Formato de exportación</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {(exportConfig?.formats ?? ["csv", "json", "xlsx"]).map((format) => {
-                  const Icon = exportIcons[format];
-                  return (
-                    <DropdownMenuItem
-                      key={format}
-                      onClick={() => handleExport(format)}
-                      className="gap-2"
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span className="uppercase">{format}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {showFlags.export && (
+            <ExportDropdown
+              formats={exportFormats}
+              onExport={handleExport}
+            />
           )}
 
           {toolbarConfig?.customEnd}
@@ -464,26 +607,71 @@ function TableToolbarInner<TData>({
       </div>
 
       {/* Bulk actions row */}
-      {hasSelection && bulkActions && (
-        <div className="flex items-center gap-3 rounded-md border bg-muted/50 px-4 py-2">
-          <Badge variant="secondary" className="font-mono">
-            {selectedCount} seleccionado{selectedCount > 1 ? "s" : ""}
-          </Badge>
-          <div className="h-4 w-px bg-border" />
-          <div className="flex items-center gap-2">{bulkActions}</div>
-          <div className="flex-1" />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClearSelection}
-            className="text-muted-foreground"
-          >
-            Limpiar selección
-          </Button>
-        </div>
+      {hasSelection && bulkActions && onClearSelection && (
+        <BulkActionsBar
+          selectedCount={selectedCount}
+          bulkActions={bulkActions}
+          onClearSelection={onClearSelection}
+        />
       )}
     </div>
   );
 }
 
-export const CustomTableToolbar = memo(TableToolbarInner) as typeof TableToolbarInner;
+// Custom comparison for toolbar memo
+function areToolbarPropsEqual<TData>(
+  prevProps: TableToolbarProps<TData>,
+  nextProps: TableToolbarProps<TData>
+): boolean {
+  // Fast path: most frequently changing props
+  if (prevProps.selectedCount !== nextProps.selectedCount) return false;
+  if (prevProps.isRefreshing !== nextProps.isRefreshing) return false;
+  if (prevProps.isFullscreen !== nextProps.isFullscreen) return false;
+  if (prevProps.density !== nextProps.density) return false;
+
+  // Filter state
+  if (prevProps.filter?.globalFilter !== nextProps.filter?.globalFilter) return false;
+
+  // Toolbar config
+  if (prevProps.toolbarConfig?.showSearch !== nextProps.toolbarConfig?.showSearch) return false;
+  if (prevProps.toolbarConfig?.showExport !== nextProps.toolbarConfig?.showExport) return false;
+  if (prevProps.toolbarConfig?.showColumnVisibility !== nextProps.toolbarConfig?.showColumnVisibility) return false;
+  if (prevProps.toolbarConfig?.showDensityToggle !== nextProps.toolbarConfig?.showDensityToggle) return false;
+  if (prevProps.toolbarConfig?.showRefresh !== nextProps.toolbarConfig?.showRefresh) return false;
+  if (prevProps.toolbarConfig?.showCopy !== nextProps.toolbarConfig?.showCopy) return false;
+  if (prevProps.toolbarConfig?.showPrint !== nextProps.toolbarConfig?.showPrint) return false;
+  if (prevProps.toolbarConfig?.showFullscreen !== nextProps.toolbarConfig?.showFullscreen) return false;
+
+  // Enable flags
+  if (prevProps.isCopyEnabled !== nextProps.isCopyEnabled) return false;
+  if (prevProps.isPrintEnabled !== nextProps.isPrintEnabled) return false;
+  if (prevProps.isFullscreenEnabled !== nextProps.isFullscreenEnabled) return false;
+  if (prevProps.exportConfig?.enabled !== nextProps.exportConfig?.enabled) return false;
+  if (prevProps.columnVisibility?.enabled !== nextProps.columnVisibility?.enabled) return false;
+
+  // Column visibility state
+  if (prevProps.columnVisibility?.columnVisibility !== nextProps.columnVisibility?.columnVisibility) return false;
+
+  // Class names
+  if (prevProps.className !== nextProps.className) return false;
+
+  // Columns reference
+  if (prevProps.columns !== nextProps.columns) return false;
+
+  // Callbacks (should be stable)
+  if (prevProps.onExport !== nextProps.onExport) return false;
+  if (prevProps.onDensityChange !== nextProps.onDensityChange) return false;
+  if (prevProps.onRefresh !== nextProps.onRefresh) return false;
+  if (prevProps.onCopy !== nextProps.onCopy) return false;
+  if (prevProps.onPrint !== nextProps.onPrint) return false;
+  if (prevProps.onToggleFullscreen !== nextProps.onToggleFullscreen) return false;
+  if (prevProps.onClearSelection !== nextProps.onClearSelection) return false;
+
+  // ReactNode comparisons (reference equality)
+  if (prevProps.bulkActions !== nextProps.bulkActions) return false;
+  if (prevProps.headerActions !== nextProps.headerActions) return false;
+
+  return true;
+}
+
+export const CustomTableToolbar = memo(TableToolbarInner, areToolbarPropsEqual) as typeof TableToolbarInner;

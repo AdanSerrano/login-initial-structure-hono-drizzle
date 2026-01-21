@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,50 @@ import { createAdminUsersCustomColumns } from "../components/columns/admin-users
 import { AdminUsersFilters } from "../components/filters/admin-users-filters";
 import { UserExpandedContent } from "../components/expanded/user-expanded-content";
 import type { AdminUser, BlockUserInput } from "../types/admin-users.types";
+
+const getRowId = (row: AdminUser) => row.id;
+
+const STYLE_CONFIG: StyleConfig = {
+  striped: true,
+  hover: true,
+  stickyHeader: true,
+  density: "default",
+  borderStyle: "default",
+  maxHeight: 600,
+};
+
+const COPY_CONFIG: CopyConfig = {
+  enabled: true,
+  format: "csv",
+  includeHeaders: true,
+  onCopy: () => {
+    toast.success("Datos copiados al portapapeles");
+  },
+};
+
+const PRINT_CONFIG: PrintConfig = {
+  enabled: true,
+  title: "Listado de Usuarios",
+  showLogo: false,
+  pageSize: "A4",
+  orientation: "landscape",
+};
+
+const FULLSCREEN_CONFIG: FullscreenConfig = {
+  enabled: true,
+  onFullscreenChange: (isFullscreen) => {
+    if (isFullscreen) {
+      toast.info("Modo pantalla completa activado", {
+        description: "Presiona Escape para salir",
+        duration: 2000,
+      });
+    }
+  },
+};
+
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
+const EXPORT_FORMATS: ExportFormat[] = ["csv", "json", "xlsx"];
+const ALWAYS_VISIBLE_COLUMNS = ["name", "actions"];
 
 export interface AdminUsersDataTableConfig {
   data: AdminUser[];
@@ -94,7 +138,25 @@ export function useAdminUsersViewModel() {
     revokeAllSessions,
   } = useAdminUsers();
 
-  // User action handlers
+  const actionsRef = useRef({
+    openDialog,
+    unblockUser,
+    restoreUser,
+    unlockAccount,
+    revokeAllSessions,
+    getSelectedUsers,
+    bulkDeleteUsers,
+  });
+
+  actionsRef.current = {
+    openDialog,
+    unblockUser,
+    restoreUser,
+    unlockAccount,
+    revokeAllSessions,
+    getSelectedUsers,
+    bulkDeleteUsers,
+  };
   const handleBlock = useCallback(
     async (id: string, data: BlockUserInput) => {
       await blockUser(id, data);
@@ -102,12 +164,9 @@ export function useAdminUsersViewModel() {
     [blockUser]
   );
 
-  const handleUnblock = useCallback(
-    async (id: string) => {
-      await unblockUser(id);
-    },
-    [unblockUser]
-  );
+  const handleUnblock = useCallback(async (id: string) => {
+    await actionsRef.current.unblockUser(id);
+  }, []);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -116,12 +175,9 @@ export function useAdminUsersViewModel() {
     [deleteUser]
   );
 
-  const handleRestore = useCallback(
-    async (id: string) => {
-      await restoreUser(id);
-    },
-    [restoreUser]
-  );
+  const handleRestore = useCallback(async (id: string) => {
+    await actionsRef.current.restoreUser(id);
+  }, []);
 
   const handleChangeRole = useCallback(
     async (id: string, role: "USER" | "ADMIN") => {
@@ -130,56 +186,51 @@ export function useAdminUsersViewModel() {
     [changeRole]
   );
 
-  const handleUnlock = useCallback(
-    async (id: string) => {
-      await unlockAccount(id);
-    },
-    [unlockAccount]
-  );
+  const handleUnlock = useCallback(async (id: string) => {
+    await actionsRef.current.unlockAccount(id);
+  }, []);
 
-  const handleRevokeSessions = useCallback(
-    async (id: string) => {
-      await revokeAllSessions(id);
-    },
-    [revokeAllSessions]
-  );
+  const handleRevokeSessions = useCallback(async (id: string) => {
+    await actionsRef.current.revokeAllSessions(id);
+  }, []);
 
   const handleBulkDelete = useCallback(async () => {
-    const selectedUsers = getSelectedUsers();
+    const selectedUsers = actionsRef.current.getSelectedUsers();
     if (selectedUsers.length > 0) {
-      await bulkDeleteUsers(selectedUsers.map((u) => u.id));
+      await actionsRef.current.bulkDeleteUsers(selectedUsers.map((u) => u.id));
     }
-  }, [getSelectedUsers, bulkDeleteUsers]);
+  }, []);
 
-  // Create columns with actions
+  // Create columns with actions - stable callbacks via refs
   const columns = useMemo(
     () =>
       createAdminUsersCustomColumns({
-        onBlock: (user) => openDialog("block", user),
+        onBlock: (user) => actionsRef.current.openDialog("block", user),
         onUnblock: (user) => handleUnblock(user.id),
-        onDelete: (user) => openDialog("delete", user),
+        onDelete: (user) => actionsRef.current.openDialog("delete", user),
         onRestore: (user) => handleRestore(user.id),
-        onChangeRole: (user) => openDialog("role", user),
+        onChangeRole: (user) => actionsRef.current.openDialog("role", user),
         onUnlock: (user) => handleUnlock(user.id),
         onRevokeSessions: (user) => handleRevokeSessions(user.id),
-        onEdit: (user) => openDialog("edit", user),
+        onEdit: (user) => actionsRef.current.openDialog("edit", user),
       }),
-    [openDialog, handleUnblock, handleRestore, handleUnlock, handleRevokeSessions]
+    [handleUnblock, handleRestore, handleUnlock, handleRevokeSessions]
   );
 
-  // Sorting change handler adapted for CustomDataTable
-  const handleCustomSortingChange = useCallback(
-    (newSorting: SortingState[]) => {
-      handleSortingChange(newSorting);
-    },
-    [handleSortingChange]
+  // Sorting change handler - just pass through, no wrapper needed
+  const handleCustomSortingChange = handleSortingChange;
+
+  // Stable renderContent for expansion - memoize the function itself
+  const renderExpandedContent = useCallback(
+    (user: AdminUser) => <UserExpandedContent user={user} />,
+    []
   );
 
-  // Selection config
+  // Selection config - only changes when rowSelection or handler changes
   const selectionConfig: SelectionConfig<AdminUser> = useMemo(
     () => ({
       enabled: true,
-      mode: "multiple",
+      mode: "multiple" as const,
       showCheckbox: true,
       selectedRows: rowSelection,
       onSelectionChange: handleRowSelectionChange,
@@ -194,25 +245,31 @@ export function useAdminUsersViewModel() {
       enabled: true,
       expandedRows: expanded,
       onExpansionChange: handleExpandedChange,
-      renderContent: (user) => <UserExpandedContent user={user} />,
+      renderContent: renderExpandedContent,
       expandOnClick: false,
     }),
-    [expanded, handleExpandedChange]
+    [expanded, handleExpandedChange, renderExpandedContent]
   );
 
-  // Pagination config
+  // Pagination config - only essential dependencies
   const paginationConfig: PaginationConfig = useMemo(
     () => ({
       pageIndex: pagination.pageIndex,
       pageSize: pagination.pageSize,
       totalRows: pagination.totalRows,
       totalPages: pagination.totalPages,
-      pageSizeOptions: [5, 10, 20, 50, 100],
+      pageSizeOptions: PAGE_SIZE_OPTIONS,
       onPaginationChange: handlePaginationChange,
       showPageNumbers: true,
       showFirstLast: true,
     }),
-    [pagination, handlePaginationChange]
+    [
+      pagination.pageIndex,
+      pagination.pageSize,
+      pagination.totalRows,
+      pagination.totalPages,
+      handlePaginationChange,
+    ]
   );
 
   // Sorting config
@@ -235,28 +292,21 @@ export function useAdminUsersViewModel() {
     [filters.search, handleSearchChange]
   );
 
-  // Style config
-  const styleConfig: StyleConfig = useMemo(
-    () => ({
-      striped: true,
-      hover: true,
-      stickyHeader: true,
-      density: "default",
-      borderStyle: "default",
-      maxHeight: 600,
-    }),
-    []
-  );
-
   // Column visibility config
   const columnVisibilityConfig: ColumnVisibilityConfig = useMemo(
     () => ({
       enabled: true,
       columnVisibility,
       onColumnVisibilityChange: handleColumnVisibilityChange,
-      alwaysVisibleColumns: ["name", "actions"],
+      alwaysVisibleColumns: ALWAYS_VISIBLE_COLUMNS,
     }),
     [columnVisibility, handleColumnVisibilityChange]
+  );
+
+  // Memoize filters component to prevent re-renders
+  const filtersComponent = useMemo(
+    () => <AdminUsersFilters filters={filters} onFiltersChange={handleFiltersChange} />,
+    [filters, handleFiltersChange]
   );
 
   // Toolbar config - with filters as custom start
@@ -272,12 +322,12 @@ export function useAdminUsersViewModel() {
       showPrint: true,
       showFullscreen: true,
       onRefresh: handleRefresh,
-      customStart: <AdminUsersFilters filters={filters} onFiltersChange={handleFiltersChange} />,
+      customStart: filtersComponent,
     }),
-    [handleRefresh, filters, handleFiltersChange]
+    [handleRefresh, filtersComponent]
   );
 
-  // Export handler - real implementation
+  // Export handler - stable callback (no dependencies needed)
   const handleExport = useCallback((format: ExportFormat, data: AdminUser[]) => {
     const filename = `usuarios_${new Date().toISOString().split("T")[0]}`;
 
@@ -344,7 +394,6 @@ export function useAdminUsersViewModel() {
         return;
     }
 
-    // Create and download file
     const blob = new Blob(["\ufeff" + content], { type: mimeType }); // BOM for UTF-8
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -360,59 +409,18 @@ export function useAdminUsersViewModel() {
     });
   }, []);
 
-  // Export config
+  // Export config - use stable reference
   const exportConfigOptions: ExportConfig<AdminUser> = useMemo(
     () => ({
       enabled: true,
-      formats: ["csv", "json", "xlsx"],
+      formats: EXPORT_FORMATS,
       filename: "usuarios",
       onExport: handleExport,
     }),
     [handleExport]
   );
 
-  // Copy config
-  const copyConfigOptions: CopyConfig = useMemo(
-    () => ({
-      enabled: true,
-      format: "csv",
-      includeHeaders: true,
-      onCopy: () => {
-        toast.success("Datos copiados al portapapeles");
-      },
-    }),
-    []
-  );
-
-  // Print config
-  const printConfigOptions: PrintConfig = useMemo(
-    () => ({
-      enabled: true,
-      title: "Listado de Usuarios",
-      showLogo: false,
-      pageSize: "A4",
-      orientation: "landscape",
-    }),
-    []
-  );
-
-  // Fullscreen config
-  const fullscreenConfigOptions: FullscreenConfig = useMemo(
-    () => ({
-      enabled: true,
-      onFullscreenChange: (isFullscreen) => {
-        if (isFullscreen) {
-          toast.info("Modo pantalla completa activado", {
-            description: "Presiona Escape para salir",
-            duration: 2000,
-          });
-        }
-      },
-    }),
-    []
-  );
-
-  // Header actions
+  // Header actions - only depends on totalRows
   const headerActions = useMemo(
     () => (
       <Button variant="outline" size="sm" className="gap-2">
@@ -423,7 +431,7 @@ export function useAdminUsersViewModel() {
     [pagination.totalRows]
   );
 
-  // Bulk actions
+  // Bulk actions - stable callback
   const bulkActions = useCallback(
     (selectedRows: AdminUser[]) => (
       <>
@@ -440,7 +448,7 @@ export function useAdminUsersViewModel() {
     [handleBulkDelete]
   );
 
-  // Row event handlers
+  // Row event handlers - all stable (no dependencies)
   const handleRowClick = useCallback((user: AdminUser) => {
     toast.info(`Click en: ${user.name || user.email}`, {
       description: `ID: ${user.id}`,
@@ -462,12 +470,15 @@ export function useAdminUsersViewModel() {
     });
   }, []);
 
-  // Complete config for CustomDataTable
+  const emptyIcon = useMemo(() => <Users className="h-12 w-12 text-muted-foreground/50" />, []);
+
+  const showLoading = isLoading && !users.length;
+
   const dataTableConfig: AdminUsersDataTableConfig = useMemo(
     () => ({
       data: users,
       columns,
-      getRowId: (row) => row.id,
+      getRowId,
       selection: selectionConfig,
       expansion: expansionConfig,
       pagination: paginationConfig,
@@ -476,14 +487,14 @@ export function useAdminUsersViewModel() {
       columnVisibility: columnVisibilityConfig,
       toolbarConfig: toolbarConfigOptions,
       exportConfig: exportConfigOptions,
-      copyConfig: copyConfigOptions,
-      printConfig: printConfigOptions,
-      fullscreenConfig: fullscreenConfigOptions,
-      style: styleConfig,
-      isLoading: isLoading && !users.length,
+      copyConfig: COPY_CONFIG,
+      printConfig: PRINT_CONFIG,
+      fullscreenConfig: FULLSCREEN_CONFIG,
+      style: STYLE_CONFIG,
+      isLoading: showLoading,
       isPending,
       emptyMessage: "No se encontraron usuarios",
-      emptyIcon: <Users className="h-12 w-12 text-muted-foreground/50" />,
+      emptyIcon,
       headerActions,
       bulkActions,
       onRowClick: handleRowClick,
@@ -501,12 +512,9 @@ export function useAdminUsersViewModel() {
       columnVisibilityConfig,
       toolbarConfigOptions,
       exportConfigOptions,
-      copyConfigOptions,
-      printConfigOptions,
-      fullscreenConfigOptions,
-      styleConfig,
-      isLoading,
+      showLoading,
       isPending,
+      emptyIcon,
       headerActions,
       bulkActions,
       handleRowClick,
@@ -516,34 +524,21 @@ export function useAdminUsersViewModel() {
   );
 
   return {
-    // Ready-to-use config
     dataTableConfig,
-
-    // Data for other components
     stats,
     selectedUser,
-
-    // UI State
     activeDialog,
     isLoading,
     isPending,
     isInitialized,
-
-    // Initialization
     fetchUsers,
     fetchStats,
     handleRefresh,
-
-    // Dialog handlers
     openDialog,
     closeDialog,
-
-    // User actions for dialogs
     handleBlock,
     handleDelete,
     handleChangeRole,
-
-    // Selection helpers
     getSelectedUsers,
     clearSelection,
   };

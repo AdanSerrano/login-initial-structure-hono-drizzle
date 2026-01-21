@@ -105,6 +105,7 @@ const AdminUsersDataTableSection = memo(function AdminUsersDataTableSection() {
       />
 
       <ChangeRoleDialog
+        key={selectedUser?.id}
         user={selectedUser}
         open={activeDialog === "role"}
         onOpenChange={(open) => !open && closeDialog()}

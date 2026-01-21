@@ -1,6 +1,14 @@
 "use client";
 
-import { forwardRef, useImperativeHandle, useRef, useMemo, useState, useCallback } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useRef,
+  useMemo,
+  useState,
+  useCallback,
+  useDeferredValue,
+} from "react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -74,10 +82,7 @@ function CustomDataTableInner<TData>(
   const currentDensity = internalDensity;
 
   // Fullscreen hook
-  const {
-    isFullscreen,
-    toggleFullscreen,
-  } = useFullscreen({
+  const { isFullscreen, toggleFullscreen } = useFullscreen({
     enabled: fullscreenConfig?.enabled ?? false,
     config: fullscreenConfig,
     containerRef: containerRef as React.RefObject<HTMLDivElement>,
@@ -104,64 +109,69 @@ function CustomDataTableInner<TData>(
     processedData,
   } = useDataTableState(props);
 
-  // Filter visible columns
+  // Defer data for smoother UI during heavy updates
+  const deferredData = useDeferredValue(processedData);
+
+  // Filter visible columns - memoized with stable reference
   const visibleColumns = useMemo(() => {
     if (!columnVisibility?.enabled) return columns;
     return columns.filter((col) => {
       const isVisible = columnVisibility.columnVisibility[col.id];
-      // If visibility is not set, default to visible (unless defaultHidden)
       if (isVisible === undefined) return !col.defaultHidden;
       return isVisible;
     });
-  }, [columns, columnVisibility]);
+  }, [columns, columnVisibility?.enabled, columnVisibility?.columnVisibility]);
 
-  // Handle export
+  // Memoize selected rows set for copy hook
+  const selectedRowsSet = useMemo(() => {
+    if (!selection?.selectedRows) return undefined;
+    return new Set(
+      Object.keys(selection.selectedRows).filter((k) => selection.selectedRows[k])
+    );
+  }, [selection?.selectedRows]);
+
+  // Handle export - stable callback
   const handleExport = useCallback(
     (format: ExportFormat) => {
-      exportConfig?.onExport?.(format, processedData);
+      exportConfig?.onExport?.(format, deferredData);
     },
-    [exportConfig, processedData]
+    [exportConfig?.onExport, deferredData]
   );
 
-  // Handle density change
+  // Handle density change - stable callback
   const handleDensityChange = useCallback((density: DensityType) => {
     setInternalDensity(density);
   }, []);
 
-  // Handle refresh
-  const handleRefresh = useCallback(() => {
-    toolbarConfig?.onRefresh?.();
-  }, [toolbarConfig]);
+  // Handle refresh - stable callback using ref
+  const toolbarConfigRef = useRef(toolbarConfig);
+  toolbarConfigRef.current = toolbarConfig;
 
-  // Copy hook
-  const {
-    copyAll,
-    isCopyEnabled,
-  } = useCopyClipboard({
+  const handleRefresh = useCallback(() => {
+    toolbarConfigRef.current?.onRefresh?.();
+  }, []);
+
+  // Copy hook with memoized inputs
+  const { copyAll, isCopyEnabled } = useCopyClipboard({
     enabled: copyConfig?.enabled ?? false,
     config: copyConfig,
-    data: processedData,
+    data: deferredData,
     columns: visibleColumns,
-    selectedRows: selection?.selectedRows
-      ? new Set(Object.keys(selection.selectedRows).filter((k) => selection.selectedRows[k]))
-      : undefined,
+    selectedRows: selectedRowsSet,
     getRowId,
   });
 
-  // Print hook
-  const {
-    printAll,
-    isPrintEnabled,
-  } = usePrint({
+  // Print hook with memoized inputs
+  const { printAll, isPrintEnabled } = usePrint({
     enabled: printConfig?.enabled ?? false,
     config: printConfig,
-    data: processedData,
+    data: deferredData,
     columns: visibleColumns,
     title: printConfig?.title,
     style,
   });
 
-  // Handle copy
+  // Handle copy - stable callback
   const handleCopy = useCallback(async () => {
     const success = await copyAll();
     if (success) {
@@ -171,12 +181,39 @@ function CustomDataTableInner<TData>(
     }
   }, [copyAll]);
 
-  // Handle print
+  // Handle print - stable callback
   const handlePrint = useCallback(() => {
     printAll();
   }, [printAll]);
 
-  // Ref methods
+  // Refs for imperative handle to avoid dependency changes
+  const stateRef = useRef({
+    data,
+    processedData: deferredData,
+    columns,
+    visibleColumns,
+    exportConfig,
+    sorting,
+    selection,
+    expansion,
+    pagination,
+    columnVisibility,
+  });
+
+  stateRef.current = {
+    data,
+    processedData: deferredData,
+    columns,
+    visibleColumns,
+    exportConfig,
+    sorting,
+    selection,
+    expansion,
+    pagination,
+    columnVisibility,
+  };
+
+  // Ref methods - stable with refs
   useImperativeHandle(
     ref,
     () => ({
@@ -196,17 +233,17 @@ function CustomDataTableInner<TData>(
         }
       },
       exportData: (format: ExportFormat) => {
-        exportConfig?.onExport?.(format, processedData);
+        stateRef.current.exportConfig?.onExport?.(format, stateRef.current.processedData);
       },
       resetFilters: () => {
         setGlobalFilter("");
       },
       setGlobalFilter,
       resetSorting: () => {
-        sorting?.onSortingChange?.([]);
+        stateRef.current.sorting?.onSortingChange?.([]);
       },
       setSorting: (newSorting) => {
-        sorting?.onSortingChange?.(newSorting);
+        stateRef.current.sorting?.onSortingChange?.(newSorting);
       },
       selectAll: selectAllRows,
       clearSelection,
@@ -215,14 +252,13 @@ function CustomDataTableInner<TData>(
         rowIds.forEach((id) => {
           newSelection[id] = true;
         });
-        selection?.onSelectionChange?.(newSelection);
+        stateRef.current.selection?.onSelectionChange?.(newSelection);
       },
       toggleRowSelection,
       getSelectedRows,
       getSelectedRowIds: () => {
-        return Object.keys(selection?.selectedRows ?? {}).filter(
-          (id) => selection?.selectedRows[id]
-        );
+        const sel = stateRef.current.selection?.selectedRows ?? {};
+        return Object.keys(sel).filter((id) => sel[id]);
       },
       expandAll: expandAllRows,
       collapseAll: collapseAllRows,
@@ -231,44 +267,56 @@ function CustomDataTableInner<TData>(
         rowIds.forEach((id) => {
           newExpansion[id] = true;
         });
-        expansion?.onExpansionChange?.(newExpansion);
+        stateRef.current.expansion?.onExpansionChange?.(newExpansion);
       },
       toggleRowExpansion,
       setColumnVisibility: (visibility: ColumnVisibilityState) => {
-        columnVisibility?.onColumnVisibilityChange?.(visibility);
+        stateRef.current.columnVisibility?.onColumnVisibilityChange?.(visibility);
       },
       toggleColumnVisibility: (columnId: string) => {
-        if (!columnVisibility) return;
-        const current = columnVisibility.columnVisibility[columnId] ?? true;
-        columnVisibility.onColumnVisibilityChange?.({
-          ...columnVisibility.columnVisibility,
+        const cv = stateRef.current.columnVisibility;
+        if (!cv) return;
+        const current = cv.columnVisibility[columnId] ?? true;
+        cv.onColumnVisibilityChange?.({
+          ...cv.columnVisibility,
           [columnId]: !current,
         });
       },
       showAllColumns: () => {
         const allVisible: ColumnVisibilityState = {};
-        columns.forEach((col) => {
+        stateRef.current.columns.forEach((col) => {
           allVisible[col.id] = true;
         });
-        columnVisibility?.onColumnVisibilityChange?.(allVisible);
+        stateRef.current.columnVisibility?.onColumnVisibilityChange?.(allVisible);
       },
       hideColumn: (columnId: string) => {
-        columnVisibility?.onColumnVisibilityChange?.({
-          ...columnVisibility.columnVisibility,
+        const cv = stateRef.current.columnVisibility;
+        cv?.onColumnVisibilityChange?.({
+          ...cv.columnVisibility,
           [columnId]: false,
         });
       },
-      getVisibleColumns: () => visibleColumns.map((col) => col.id),
+      getVisibleColumns: () => stateRef.current.visibleColumns.map((col) => col.id),
       goToPage,
       goToFirstPage: () => goToPage(0),
-      goToLastPage: () => goToPage((pagination?.totalPages ?? 1) - 1),
-      nextPage: () => goToPage((pagination?.pageIndex ?? 0) + 1),
-      previousPage: () => goToPage(Math.max(0, (pagination?.pageIndex ?? 0) - 1)),
+      goToLastPage: () => {
+        const totalPages = stateRef.current.pagination?.totalPages ?? 1;
+        goToPage(totalPages - 1);
+      },
+      nextPage: () => {
+        const pageIndex = stateRef.current.pagination?.pageIndex ?? 0;
+        goToPage(pageIndex + 1);
+      },
+      previousPage: () => {
+        const pageIndex = stateRef.current.pagination?.pageIndex ?? 0;
+        goToPage(Math.max(0, pageIndex - 1));
+      },
       setPageSize,
-      getVisibleData: () => processedData,
-      getFilteredData: () => processedData,
-      getAllData: () => data,
-      getRowById: (id: string) => data.find((row) => getRowId(row) === id),
+      getVisibleData: () => stateRef.current.processedData,
+      getFilteredData: () => stateRef.current.processedData,
+      getAllData: () => stateRef.current.data,
+      getRowById: (id: string) =>
+        stateRef.current.data.find((row) => getRowId(row) === id),
       focusTable: () => tableRef.current?.focus(),
       focusRow: (index: number) => {
         const row = tableRef.current?.querySelector(
@@ -278,17 +326,7 @@ function CustomDataTableInner<TData>(
       },
     }),
     [
-      data,
-      processedData,
-      columns,
-      visibleColumns,
-      exportConfig,
       setGlobalFilter,
-      sorting,
-      selection,
-      expansion,
-      pagination,
-      columnVisibility,
       selectAllRows,
       clearSelection,
       toggleRowSelection,
@@ -302,7 +340,7 @@ function CustomDataTableInner<TData>(
     ]
   );
 
-  // Calculate max height style
+  // Calculate max height style - memoized
   const containerStyle = useMemo(() => {
     const styles: React.CSSProperties = {};
     if (style?.maxHeight) styles.maxHeight = style.maxHeight;
@@ -310,138 +348,236 @@ function CustomDataTableInner<TData>(
     return styles;
   }, [style?.maxHeight, style?.minHeight]);
 
-  // Get bulk actions content
+  // Get bulk actions content - memoized
   const bulkActionsContent = useMemo(() => {
     if (!bulkActions || selectedCount === 0) return null;
     return bulkActions(getSelectedRows());
   }, [bulkActions, selectedCount, getSelectedRows]);
 
-  // Show expander column
+  // Show expander column - memoized boolean
   const showExpander = expansion?.enabled ?? false;
 
-  // Determine if toolbar should show
-  const showToolbar =
-    toolbarConfig?.show !== false &&
-    (filter ||
-      exportConfig?.enabled ||
-      headerActions ||
-      toolbar ||
-      toolbarConfig?.showColumnVisibility ||
-      toolbarConfig?.showDensityToggle ||
-      toolbarConfig?.showRefresh ||
-      toolbarConfig?.showCopy ||
-      toolbarConfig?.showPrint ||
-      toolbarConfig?.showFullscreen);
+  // Determine if toolbar should show - memoized
+  const showToolbar = useMemo(
+    () =>
+      toolbarConfig?.show !== false &&
+      (filter ||
+        exportConfig?.enabled ||
+        headerActions ||
+        toolbar ||
+        toolbarConfig?.showColumnVisibility ||
+        toolbarConfig?.showDensityToggle ||
+        toolbarConfig?.showRefresh ||
+        toolbarConfig?.showCopy ||
+        toolbarConfig?.showPrint ||
+        toolbarConfig?.showFullscreen),
+    [
+      toolbarConfig?.show,
+      toolbarConfig?.showColumnVisibility,
+      toolbarConfig?.showDensityToggle,
+      toolbarConfig?.showRefresh,
+      toolbarConfig?.showCopy,
+      toolbarConfig?.showPrint,
+      toolbarConfig?.showFullscreen,
+      filter,
+      exportConfig?.enabled,
+      headerActions,
+      toolbar,
+    ]
+  );
 
-  // Merge style with current density
-  const effectiveStyle = useMemo(() => {
-    return {
+  // Merge style with current density - memoized
+  const effectiveStyle = useMemo(
+    () => ({
       ...style,
       density: currentDensity,
-    };
-  }, [style, currentDensity]);
+    }),
+    [style, currentDensity]
+  );
 
-  return (
-    <div
-      ref={containerRef}
-      className={cn(
+  // Memoized toolbar props to prevent re-renders
+  const toolbarProps = useMemo(
+    () => ({
+      filter,
+      exportConfig,
+      onExport: handleExport,
+      columnVisibility,
+      columns,
+      selectedCount,
+      totalRows: pagination?.totalRows ?? data.length,
+      bulkActions: bulkActionsContent,
+      headerActions,
+      onClearSelection: clearSelection,
+      toolbarConfig,
+      density: currentDensity,
+      onDensityChange: handleDensityChange,
+      onRefresh: toolbarConfig?.onRefresh ? handleRefresh : undefined,
+      isRefreshing: isPending,
+      onCopy: isCopyEnabled ? handleCopy : undefined,
+      isCopyEnabled,
+      onPrint: isPrintEnabled ? handlePrint : undefined,
+      isPrintEnabled,
+      isFullscreen,
+      onToggleFullscreen: fullscreenConfig?.enabled ? toggleFullscreen : undefined,
+      isFullscreenEnabled: fullscreenConfig?.enabled ?? false,
+      className: toolbarClassName,
+    }),
+    [
+      filter,
+      exportConfig,
+      handleExport,
+      columnVisibility,
+      columns,
+      selectedCount,
+      pagination?.totalRows,
+      data.length,
+      bulkActionsContent,
+      headerActions,
+      clearSelection,
+      toolbarConfig,
+      currentDensity,
+      handleDensityChange,
+      handleRefresh,
+      isPending,
+      isCopyEnabled,
+      handleCopy,
+      isPrintEnabled,
+      handlePrint,
+      isFullscreen,
+      fullscreenConfig?.enabled,
+      toggleFullscreen,
+      toolbarClassName,
+    ]
+  );
+
+  // Memoized header props
+  const headerProps = useMemo(
+    () => ({
+      columns: visibleColumns,
+      selection,
+      showExpander,
+      sorting: sorting?.sorting,
+      onSort: toggleSort,
+      getSortDirection,
+      isAllSelected,
+      isSomeSelected,
+      onSelectAll: selectAllRows,
+      onClearSelection: clearSelection,
+      stickyHeader: style?.stickyHeader,
+      className: headerClassName,
+    }),
+    [
+      visibleColumns,
+      selection,
+      showExpander,
+      sorting?.sorting,
+      toggleSort,
+      getSortDirection,
+      isAllSelected,
+      isSomeSelected,
+      selectAllRows,
+      clearSelection,
+      style?.stickyHeader,
+      headerClassName,
+    ]
+  );
+
+  // Memoized body props
+  const bodyProps = useMemo(
+    () => ({
+      data: deferredData,
+      columns: visibleColumns,
+      getRowId,
+      selection,
+      expansion,
+      style: effectiveStyle,
+      isLoading,
+      isPending,
+      emptyMessage,
+      emptyIcon,
+      isRowSelected,
+      isRowExpanded,
+      onToggleSelection: toggleRowSelection,
+      onToggleExpansion: toggleRowExpansion,
+      onRowClick,
+      onRowDoubleClick,
+      onRowContextMenu,
+      rowClassName,
+      pageSize: pagination?.pageSize ?? 10,
+      className: bodyClassName,
+    }),
+    [
+      deferredData,
+      visibleColumns,
+      getRowId,
+      selection,
+      expansion,
+      effectiveStyle,
+      isLoading,
+      isPending,
+      emptyMessage,
+      emptyIcon,
+      isRowSelected,
+      isRowExpanded,
+      toggleRowSelection,
+      toggleRowExpansion,
+      onRowClick,
+      onRowDoubleClick,
+      onRowContextMenu,
+      rowClassName,
+      pagination?.pageSize,
+      bodyClassName,
+    ]
+  );
+
+  // Memoized pagination props - only create when pagination exists
+  const paginationProps = useMemo(() => {
+    if (!pagination) return null;
+    return {
+      pagination,
+      selectedCount,
+      totalRows: pagination.totalRows ?? 0,
+      className: paginationClassName,
+    };
+  }, [pagination, selectedCount, paginationClassName]);
+
+  // Container class - memoized
+  const containerClass = useMemo(
+    () =>
+      cn(
         "w-full",
         isFullscreen && "fixed inset-0 z-50 bg-background p-4 overflow-auto",
         className
-      )}
-    >
+      ),
+    [isFullscreen, className]
+  );
+
+  // Table container class - memoized
+  const tableContainerClass = useMemo(
+    () => cn("relative overflow-auto rounded-md border", containerClassName),
+    [containerClassName]
+  );
+
+  return (
+    <div ref={containerRef} className={containerClass}>
       {/* Toolbar */}
-      {showToolbar && (
-        <>
-          {toolbar ?? (
-            <CustomTableToolbar
-              filter={filter}
-              exportConfig={exportConfig}
-              onExport={handleExport}
-              columnVisibility={columnVisibility}
-              columns={columns}
-              selectedCount={selectedCount}
-              totalRows={pagination?.totalRows ?? data.length}
-              bulkActions={bulkActionsContent}
-              headerActions={headerActions}
-              onClearSelection={clearSelection}
-              toolbarConfig={toolbarConfig}
-              density={currentDensity}
-              onDensityChange={handleDensityChange}
-              onRefresh={toolbarConfig?.onRefresh ? handleRefresh : undefined}
-              isRefreshing={isPending}
-              onCopy={isCopyEnabled ? handleCopy : undefined}
-              isCopyEnabled={isCopyEnabled}
-              onPrint={isPrintEnabled ? handlePrint : undefined}
-              isPrintEnabled={isPrintEnabled}
-              isFullscreen={isFullscreen}
-              onToggleFullscreen={fullscreenConfig?.enabled ? toggleFullscreen : undefined}
-              isFullscreenEnabled={fullscreenConfig?.enabled ?? false}
-              className={toolbarClassName}
-            />
-          )}
-        </>
-      )}
+      {showToolbar && <>{toolbar ?? <CustomTableToolbar {...toolbarProps} />}</>}
 
       {/* Table */}
       <div
         ref={tableRef}
-        className={cn(
-          "relative overflow-auto rounded-md border",
-          containerClassName
-        )}
+        className={tableContainerClass}
         style={containerStyle}
         tabIndex={0}
       >
         <Table>
-          <CustomTableHeader
-            columns={visibleColumns}
-            selection={selection}
-            showExpander={showExpander}
-            sorting={sorting?.sorting}
-            onSort={toggleSort}
-            getSortDirection={getSortDirection}
-            isAllSelected={isAllSelected}
-            isSomeSelected={isSomeSelected}
-            onSelectAll={selectAllRows}
-            onClearSelection={clearSelection}
-            stickyHeader={style?.stickyHeader}
-            className={headerClassName}
-          />
-          <CustomTableBody
-            data={processedData}
-            columns={visibleColumns}
-            getRowId={getRowId}
-            selection={selection}
-            expansion={expansion}
-            style={effectiveStyle}
-            isLoading={isLoading}
-            isPending={isPending}
-            emptyMessage={emptyMessage}
-            emptyIcon={emptyIcon}
-            isRowSelected={isRowSelected}
-            isRowExpanded={isRowExpanded}
-            onToggleSelection={toggleRowSelection}
-            onToggleExpansion={toggleRowExpansion}
-            onRowClick={onRowClick}
-            onRowDoubleClick={onRowDoubleClick}
-            onRowContextMenu={onRowContextMenu}
-            rowClassName={rowClassName}
-            pageSize={pagination?.pageSize ?? 10}
-            className={bodyClassName}
-          />
+          <CustomTableHeader {...headerProps} />
+          <CustomTableBody {...bodyProps} />
         </Table>
       </div>
 
       {/* Pagination */}
-      {pagination && (
-        <CustomTablePagination
-          pagination={pagination}
-          selectedCount={selectedCount}
-          totalRows={pagination.totalRows}
-          className={paginationClassName}
-        />
-      )}
+      {paginationProps && <CustomTablePagination {...paginationProps} />}
 
       {/* Footer */}
       {footer}

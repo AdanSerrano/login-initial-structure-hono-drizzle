@@ -26,18 +26,8 @@ interface Props {
 }
 
 function ChangeRoleDialogComponent({ user, open, onOpenChange, onConfirm }: Props) {
-  const [selectedRole, setSelectedRole] = useState<"USER" | "ADMIN">("USER");
+  const [selectedRole, setSelectedRole] = useState<"USER" | "ADMIN">(user?.role ?? "USER");
   const [isPending, startTransition] = useTransition();
-
-  const handleOpenChange = useCallback(
-    (newOpen: boolean) => {
-      if (newOpen && user) {
-        setSelectedRole(user.role);
-      }
-      onOpenChange(newOpen);
-    },
-    [user, onOpenChange]
-  );
 
   const handleConfirm = useCallback(() => {
     if (!user) return;
@@ -57,7 +47,7 @@ function ChangeRoleDialogComponent({ user, open, onOpenChange, onConfirm }: Prop
   const isChangingToAdmin = selectedRole === "ADMIN" && user.role !== "ADMIN";
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
