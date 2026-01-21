@@ -1,14 +1,11 @@
 import { create } from "zustand";
-import type {
-  SortingState,
-  RowSelectionState,
-  VisibilityState,
-  ColumnFiltersState,
-  ExpandedState,
-} from "@tanstack/react-table";
 import type { AdminUser, AdminUserFilters, AdminUserStats } from "../types/admin-users.types";
 
 type DialogType = "block" | "delete" | "role" | "edit" | "bulkAction" | null;
+type SortingState = { id: string; desc: boolean }[];
+type RowSelectionState = Record<string, boolean>;
+type ExpandedState = Record<string, boolean>;
+type ColumnVisibilityState = Record<string, boolean>;
 
 interface PaginationState {
   pageIndex: number;
@@ -18,28 +15,21 @@ interface PaginationState {
 }
 
 interface AdminUsersState {
-  // Data
   users: AdminUser[];
   stats: AdminUserStats | null;
   selectedUser: AdminUser | null;
-
-  // Table State
   pagination: PaginationState;
   filters: AdminUserFilters;
   sorting: SortingState;
   rowSelection: RowSelectionState;
-  columnVisibility: VisibilityState;
-  columnFilters: ColumnFiltersState;
   expanded: ExpandedState;
-
-  // UI State
+  columnVisibility: ColumnVisibilityState;
   activeDialog: DialogType;
   isLoading: boolean;
   isInitialized: boolean;
 }
 
 interface AdminUsersActions {
-  // Data actions
   setUsers: (users: AdminUser[]) => void;
   setStats: (stats: AdminUserStats) => void;
   setSelectedUser: (user: AdminUser | null) => void;
@@ -47,40 +37,29 @@ interface AdminUsersActions {
   bulkUpdateUsers: (users: AdminUser[]) => void;
   removeUser: (id: string) => void;
   bulkRemoveUsers: (ids: string[]) => void;
-
-  // Table state actions
   setPagination: (pagination: PaginationState) => void;
   setFilters: (filters: AdminUserFilters) => void;
   setSorting: (sorting: SortingState) => void;
   setRowSelection: (selection: RowSelectionState) => void;
-  setColumnVisibility: (visibility: VisibilityState) => void;
-  setColumnFilters: (filters: ColumnFiltersState) => void;
   setExpanded: (expanded: ExpandedState) => void;
-
-  // UI actions
+  setColumnVisibility: (columnVisibility: ColumnVisibilityState) => void;
   setActiveDialog: (dialog: DialogType) => void;
   openDialog: (dialog: DialogType, user?: AdminUser) => void;
   closeDialog: () => void;
   setIsLoading: (isLoading: boolean) => void;
   setIsInitialized: (isInitialized: boolean) => void;
-
-  // Selection helpers
   getSelectedUsers: () => AdminUser[];
   clearSelection: () => void;
   selectAll: () => void;
   toggleRowSelection: (id: string) => void;
 
-  // Reset
   reset: () => void;
 }
 
 const initialState: AdminUsersState = {
-  // Data
   users: [],
   stats: null,
   selectedUser: null,
-
-  // Table State
   pagination: {
     pageIndex: 0,
     pageSize: 10,
@@ -96,11 +75,8 @@ const initialState: AdminUsersState = {
   },
   sorting: [{ id: "createdAt", desc: true }],
   rowSelection: {},
-  columnVisibility: {},
-  columnFilters: [],
   expanded: {},
-
-  // UI State
+  columnVisibility: {},
   activeDialog: null,
   isLoading: false,
   isInitialized: false,
@@ -108,20 +84,14 @@ const initialState: AdminUsersState = {
 
 export const useAdminUsersStore = create<AdminUsersState & AdminUsersActions>((set, get) => ({
   ...initialState,
-
-  // Data actions
   setUsers: (users) => set({ users }),
-
   setStats: (stats) => set({ stats }),
-
   setSelectedUser: (selectedUser) => set({ selectedUser }),
-
   updateUser: (user) =>
     set((state) => ({
       users: state.users.map((u) => (u.id === user.id ? user : u)),
       selectedUser: state.selectedUser?.id === user.id ? user : state.selectedUser,
     })),
-
   bulkUpdateUsers: (users) =>
     set((state) => {
       const userMap = new Map(users.map((u) => [u.id, u]));
@@ -133,7 +103,6 @@ export const useAdminUsersStore = create<AdminUsersState & AdminUsersActions>((s
         rowSelection: {},
       };
     }),
-
   removeUser: (id) =>
     set((state) => {
       const newSelection = { ...state.rowSelection };
@@ -148,7 +117,6 @@ export const useAdminUsersStore = create<AdminUsersState & AdminUsersActions>((s
         },
       };
     }),
-
   bulkRemoveUsers: (ids) =>
     set((state) => {
       const idsSet = new Set(ids);
@@ -165,7 +133,6 @@ export const useAdminUsersStore = create<AdminUsersState & AdminUsersActions>((s
       };
     }),
 
-  // Table state actions
   setPagination: (pagination) => set({ pagination }),
 
   setFilters: (filters) => set({ filters }),
@@ -174,11 +141,9 @@ export const useAdminUsersStore = create<AdminUsersState & AdminUsersActions>((s
 
   setRowSelection: (rowSelection) => set({ rowSelection }),
 
-  setColumnVisibility: (columnVisibility) => set({ columnVisibility }),
-
-  setColumnFilters: (columnFilters) => set({ columnFilters }),
-
   setExpanded: (expanded) => set({ expanded }),
+
+  setColumnVisibility: (columnVisibility) => set({ columnVisibility }),
 
   // UI actions
   setActiveDialog: (activeDialog) => set({ activeDialog }),
@@ -199,7 +164,6 @@ export const useAdminUsersStore = create<AdminUsersState & AdminUsersActions>((s
 
   setIsInitialized: (isInitialized) => set({ isInitialized }),
 
-  // Selection helpers
   getSelectedUsers: () => {
     const state = get();
     const selectedIds = Object.keys(state.rowSelection).filter(

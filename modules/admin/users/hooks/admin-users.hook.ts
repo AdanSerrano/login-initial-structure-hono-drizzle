@@ -2,14 +2,6 @@
 
 import { useCallback, useRef, useTransition, useDeferredValue, useMemo } from "react";
 import { toast } from "sonner";
-import type {
-  PaginationState,
-  SortingState,
-  RowSelectionState,
-  VisibilityState,
-  ColumnFiltersState,
-  ExpandedState,
-} from "@tanstack/react-table";
 import { adminUsersApi } from "../api/admin-users.api";
 import { useAdminUsersStore } from "../state/admin-users.state";
 import type {
@@ -17,6 +9,7 @@ import type {
   UpdateUserInput,
   BlockUserInput,
 } from "../types/admin-users.types";
+import type { SortingState, PaginationState, ColumnVisibilityState } from "@/components/ui/custom-datatable";
 
 export function useAdminUsers() {
   const [isPending, startTransition] = useTransition();
@@ -38,12 +31,10 @@ export function useAdminUsers() {
     setSelectedUser,
     rowSelection,
     setRowSelection,
-    columnVisibility,
-    setColumnVisibility,
-    columnFilters,
-    setColumnFilters,
     expanded,
     setExpanded,
+    columnVisibility,
+    setColumnVisibility,
     activeDialog,
     openDialog,
     closeDialog,
@@ -128,7 +119,7 @@ export function useAdminUsers() {
   );
 
   const handleSortingChange = useCallback(
-    (newSorting: SortingState) => {
+    (newSorting: SortingState[]) => {
       setSorting(newSorting);
       startTransition(() => {
         fetchUsers();
@@ -154,36 +145,32 @@ export function useAdminUsers() {
       const currentState = useAdminUsersStore.getState();
       setFilters({ ...currentState.filters, search });
       setPagination({ ...currentState.pagination, pageIndex: 0 });
+      startTransition(() => {
+        fetchUsers();
+      });
     },
-    [setFilters, setPagination]
+    [setFilters, setPagination, fetchUsers]
   );
 
   const handleRowSelectionChange = useCallback(
-    (selection: RowSelectionState) => {
+    (selection: Record<string, boolean>) => {
       setRowSelection(selection);
     },
     [setRowSelection]
   );
 
-  const handleColumnVisibilityChange = useCallback(
-    (visibility: VisibilityState) => {
-      setColumnVisibility(visibility);
-    },
-    [setColumnVisibility]
-  );
-
-  const handleColumnFiltersChange = useCallback(
-    (filters: ColumnFiltersState) => {
-      setColumnFilters(filters);
-    },
-    [setColumnFilters]
-  );
-
   const handleExpandedChange = useCallback(
-    (expanded: ExpandedState) => {
-      setExpanded(expanded);
+    (expandedState: Record<string, boolean>) => {
+      setExpanded(expandedState);
     },
     [setExpanded]
+  );
+
+  const handleColumnVisibilityChange = useCallback(
+    (visibility: ColumnVisibilityState) => {
+      setColumnVisibility(visibility);
+    },
+    []
   );
 
   const blockUser = useCallback(
@@ -368,8 +355,6 @@ export function useAdminUsers() {
     filters,
     sorting,
     rowSelection,
-    columnVisibility,
-    columnFilters,
     expanded,
 
     // UI state
@@ -389,9 +374,11 @@ export function useAdminUsers() {
     handleFiltersChange,
     handleSearchChange,
     handleRowSelectionChange,
-    handleColumnVisibilityChange,
-    handleColumnFiltersChange,
     handleExpandedChange,
+    handleColumnVisibilityChange,
+
+    // Column visibility
+    columnVisibility,
 
     // Selection
     setSelectedUser,

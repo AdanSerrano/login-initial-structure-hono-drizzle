@@ -4,7 +4,7 @@ import { useRef, useCallback, memo } from "react";
 import { RefreshCw } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { DataTableView } from "@/components/ui/dynamic-datatable-scaffold";
+import { CustomDataTable } from "@/components/ui/custom-datatable";
 
 import { useAdminUsersViewModel } from "../view-model/admin-users.view-model";
 import { AdminUsersStats } from "../components/stats/admin-users-stats";
@@ -14,6 +14,7 @@ import {
   DeleteUserDialog,
   ChangeRoleDialog,
 } from "../components/dialogs";
+import { useAdminUsersStore } from "../state/admin-users.state";
 
 const AdminUsersHeader = memo(function AdminUsersHeader({
   isPending,
@@ -40,24 +41,88 @@ const AdminUsersHeader = memo(function AdminUsersHeader({
   );
 });
 
-export function AdminUsersView() {
-  const initRef = useRef(false);
+// Stats section - reads directly from store with selector to avoid unnecessary re-renders
+const AdminUsersStatsSection = memo(function AdminUsersStatsSection() {
+  const stats = useAdminUsersStore((state) => state.stats);
+  const isLoading = useAdminUsersStore((state) => state.isLoading);
 
+  return <AdminUsersStats stats={stats} isLoading={isLoading && !stats} />;
+});
+
+// DataTable section - isolated to prevent stats re-renders
+const AdminUsersDataTableSection = memo(function AdminUsersDataTableSection() {
   const {
     dataTableConfig,
-    stats,
     selectedUser,
     activeDialog,
-    isLoading,
-    isPending,
-    isInitialized,
-    fetchUsers,
-    fetchStats,
-    handleRefresh,
     closeDialog,
     handleBlock,
     handleDelete,
     handleChangeRole,
+  } = useAdminUsersViewModel();
+
+  return (
+    <>
+      <CustomDataTable
+        data={dataTableConfig.data}
+        columns={dataTableConfig.columns}
+        getRowId={dataTableConfig.getRowId}
+        selection={dataTableConfig.selection}
+        expansion={dataTableConfig.expansion}
+        pagination={dataTableConfig.pagination}
+        sorting={dataTableConfig.sorting}
+        filter={dataTableConfig.filter}
+        columnVisibility={dataTableConfig.columnVisibility}
+        toolbarConfig={dataTableConfig.toolbarConfig}
+        export={dataTableConfig.exportConfig}
+        copy={dataTableConfig.copyConfig}
+        print={dataTableConfig.printConfig}
+        fullscreen={dataTableConfig.fullscreenConfig}
+        style={dataTableConfig.style}
+        isLoading={dataTableConfig.isLoading}
+        isPending={dataTableConfig.isPending}
+        emptyMessage={dataTableConfig.emptyMessage}
+        emptyIcon={dataTableConfig.emptyIcon}
+        headerActions={dataTableConfig.headerActions}
+        bulkActions={dataTableConfig.bulkActions}
+        onRowClick={dataTableConfig.onRowClick}
+        onRowDoubleClick={dataTableConfig.onRowDoubleClick}
+        onRowContextMenu={dataTableConfig.onRowContextMenu}
+      />
+
+      <BlockUserDialog
+        user={selectedUser}
+        open={activeDialog === "block"}
+        onOpenChange={(open) => !open && closeDialog()}
+        onConfirm={handleBlock}
+      />
+
+      <DeleteUserDialog
+        user={selectedUser}
+        open={activeDialog === "delete"}
+        onOpenChange={(open) => !open && closeDialog()}
+        onConfirm={handleDelete}
+      />
+
+      <ChangeRoleDialog
+        user={selectedUser}
+        open={activeDialog === "role"}
+        onOpenChange={(open) => !open && closeDialog()}
+        onConfirm={handleChangeRole}
+      />
+    </>
+  );
+});
+
+export function AdminUsersView() {
+  const initRef = useRef(false);
+  const isPending = useAdminUsersStore((state) => state.isLoading);
+  const isInitialized = useAdminUsersStore((state) => state.isInitialized);
+
+  const {
+    fetchUsers,
+    fetchStats,
+    handleRefresh,
   } = useAdminUsersViewModel();
 
   const initializeData = useCallback(() => {
@@ -80,30 +145,9 @@ export function AdminUsersView() {
     <div className="space-y-6">
       <AdminUsersHeader isPending={isPending} onRefresh={handleRefresh} />
 
-      <AdminUsersStats stats={stats} isLoading={isLoading} />
+      <AdminUsersStatsSection />
 
-      <DataTableView config={dataTableConfig} />
-
-      <BlockUserDialog
-        user={selectedUser}
-        open={activeDialog === "block"}
-        onOpenChange={(open) => !open && closeDialog()}
-        onConfirm={handleBlock}
-      />
-
-      <DeleteUserDialog
-        user={selectedUser}
-        open={activeDialog === "delete"}
-        onOpenChange={(open) => !open && closeDialog()}
-        onConfirm={handleDelete}
-      />
-
-      <ChangeRoleDialog
-        user={selectedUser}
-        open={activeDialog === "role"}
-        onOpenChange={(open) => !open && closeDialog()}
-        onConfirm={handleChangeRole}
-      />
+      <AdminUsersDataTableSection />
     </div>
   );
 }

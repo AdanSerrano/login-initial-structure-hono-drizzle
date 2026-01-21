@@ -38,7 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-import type { DataTableColumn } from "@/components/ui/data-table";
+import type { CustomColumnDef } from "@/components/ui/custom-datatable";
 import type { AdminUser } from "../../types/admin-users.types";
 
 interface ColumnActions {
@@ -294,95 +294,86 @@ const ActionsCell = memo(function ActionsCell({
   );
 });
 
-export function createAdminUsersColumns(actions: ColumnActions): DataTableColumn<AdminUser>[] {
+export function createAdminUsersCustomColumns(
+  actions: ColumnActions
+): CustomColumnDef<AdminUser>[] {
   return [
     {
+      id: "name",
       accessorKey: "name",
       header: "Usuario",
-      cell: ({ row }) => <UserCell user={row.original} />,
-      meta: {
-        minWidth: 220,
-      },
+      cell: ({ row }) => <UserCell user={row} />,
+      minWidth: 220,
       enableSorting: false,
     },
     {
+      id: "email",
       accessorKey: "email",
       header: "Email",
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.email || "-"}</span>
+        <span className="text-sm text-muted-foreground">{row.email || "-"}</span>
       ),
-      meta: {
-        minWidth: 200,
-      },
+      minWidth: 200,
     },
     {
+      id: "role",
       accessorKey: "role",
       header: "Rol",
-      cell: ({ row }) => <RoleBadge role={row.original.role} />,
-      meta: {
-        width: 110,
-        align: "center",
-      },
+      cell: ({ row }) => <RoleBadge role={row.role} />,
+      width: 110,
+      align: "center",
     },
     {
+      id: "isBlocked",
       accessorKey: "isBlocked",
       header: "Estado",
-      cell: ({ row }) => <StatusBadge user={row.original} />,
-      meta: {
-        width: 140,
-        align: "center",
-      },
+      cell: ({ row }) => <StatusBadge user={row} />,
+      width: 140,
+      align: "center",
     },
     {
       id: "security",
       header: "Seguridad",
-      cell: ({ row }) => <SecurityIndicators user={row.original} />,
+      cell: ({ row }) => <SecurityIndicators user={row} />,
       enableSorting: false,
-      meta: {
-        width: 90,
-        align: "center",
-      },
+      width: 90,
+      align: "center",
     },
     {
+      id: "lastLoginAt",
       accessorKey: "lastLoginAt",
       header: "Último acceso",
       cell: ({ row }) => (
         <div className="text-sm">
-          <div>{formatDate(row.original.lastLoginAt)}</div>
-          {row.original.lastLoginCountry && (
+          <div>{formatDate(row.lastLoginAt)}</div>
+          {row.lastLoginCountry && (
             <div className="text-xs text-muted-foreground">
-              {row.original.lastLoginCity}, {row.original.lastLoginCountry}
+              {row.lastLoginCity}, {row.lastLoginCountry}
             </div>
           )}
         </div>
       ),
-      meta: {
-        minWidth: 150,
-      },
+      minWidth: 150,
     },
     {
+      id: "createdAt",
       accessorKey: "createdAt",
       header: "Registro",
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
+          {formatDate(row.createdAt)}
         </span>
       ),
-      meta: {
-        width: 130,
-      },
+      width: 130,
     },
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => <ActionsCell user={row.original} actions={actions} />,
+      cell: ({ row }) => <ActionsCell user={row} actions={actions} />,
       enableSorting: false,
-      enableHiding: false,
-      meta: {
-        width: 50,
-        pinned: "right",
-        align: "center",
-      },
+      width: 50,
+      pinned: "right",
+      align: "center",
     },
   ];
 }
