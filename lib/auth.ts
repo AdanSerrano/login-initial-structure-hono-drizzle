@@ -5,8 +5,11 @@ import { usersTable } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import type { UserResponse } from '@/modules/user/types/user.types';
 import { JWT_SECRET_ENCODED, TOKEN_CONFIG } from './jwt-config';
+import { sessionsService } from '@/modules/sessions/services/sessions.service';
 
 const { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } = TOKEN_CONFIG;
+
+const ACCESS_TOKEN_MAX_AGE = 60 * 15; // 15 minutes
 
 interface JwtPayload {
   userId: string;
@@ -63,11 +66,30 @@ export async function auth(): Promise<{ user: UserResponse } | null> {
           };
         }
       } catch {
-        // Access token invalid/expired, but we have refresh token
-        // The client will handle refresh via axios interceptor
-        if (!refreshToken) {
-          return null;
+        // Access token invalid/expired
+        // Try to refresh using the refresh token if available
+        if (refreshToken) {
+          const refreshResult = await sessionsService.refreshAccessToken(refreshToken);
+
+          if (refreshResult.success) {
+            // Set new access token cookie
+            cookieStore.set(ACCESS_TOKEN_COOKIE, refreshResult.data.accessToken, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              maxAge: ACCESS_TOKEN_MAX_AGE,
+              path: '/',
+            });
+
+            return { user: refreshResult.data.user as UserResponse };
+          } else {
+            // Refresh failed - clear both cookies
+            cookieStore.delete(ACCESS_TOKEN_COOKIE);
+            cookieStore.delete(REFRESH_TOKEN_COOKIE);
+            return null;
+          }
         }
+        return null;
       }
     }
 
@@ -96,10 +118,27 @@ export async function auth(): Promise<{ user: UserResponse } | null> {
       }
     }
 
-    // Access token expired but refresh token exists
-    // Return a special state that tells client to refresh
+    // No access token but refresh token exists - try to refresh
     if (refreshToken && !userId) {
-      return null; // Client will handle refresh
+      const refreshResult = await sessionsService.refreshAccessToken(refreshToken);
+
+      if (refreshResult.success) {
+        // Set new access token cookie
+        cookieStore.set(ACCESS_TOKEN_COOKIE, refreshResult.data.accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: ACCESS_TOKEN_MAX_AGE,
+          path: '/',
+        });
+
+        return { user: refreshResult.data.user as UserResponse };
+      } else {
+        // Refresh failed - clear cookies
+        cookieStore.delete(ACCESS_TOKEN_COOKIE);
+        cookieStore.delete(REFRESH_TOKEN_COOKIE);
+        return null;
+      }
     }
 
     return null;

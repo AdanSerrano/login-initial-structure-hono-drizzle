@@ -56,11 +56,13 @@ export async function proxy(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
   const isAccessTokenValid = accessToken ? await verifyToken(accessToken) : false;
-  const hasValidSession = isAccessTokenValid || (!isAccessTokenValid && !!refreshToken);
 
   // 4. Auth routes (login, register, etc.) - for unauthenticated users
   if (isAuthRoute(pathname)) {
-    if (hasValidSession) {
+    // Only redirect away if access token is VALID
+    // If access token is expired/invalid, let user access auth routes
+    // The auth() function will handle refresh token validation on page load
+    if (isAccessTokenValid) {
       // Authenticated user trying to access auth pages - redirect away
       const callbackUrl = nextUrl.searchParams.get('callbackUrl');
       const redirectUrl =
@@ -69,11 +71,15 @@ export async function proxy(request: NextRequest) {
           : DEFAULT_LOGIN_REDIRECT;
       return NextResponse.redirect(new URL(redirectUrl, nextUrl.origin));
     }
-    // Not authenticated - allow access to auth routes
+    // Access token invalid/expired - allow access to auth routes
+    // auth() will attempt to refresh using refresh token on page load
     return NextResponse.next();
   }
 
   // 5. Protected routes - require authentication
+  // Allow access if access token is valid OR if refresh token exists
+  // (auth() will handle refresh token validation and set new access token)
+  const hasValidSession = isAccessTokenValid || !!refreshToken;
   if (!hasValidSession) {
     const loginUrl = new URL('/login', nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', pathname);
